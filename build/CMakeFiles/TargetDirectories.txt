@@ -1,0 +1,7 @@
+/home/cpluspluser/Projects/FaceOrganizer/build/CMakeFiles/imgorg.dir
+/home/cpluspluser/Projects/FaceOrganizer/build/CMakeFiles/edit_cache.dir
+/home/cpluspluser/Projects/FaceOrganizer/build/CMakeFiles/rebuild_cache.dir
+/home/cpluspluser/Projects/FaceOrganizer/build/CMakeFiles/list_install_components.dir
+/home/cpluspluser/Projects/FaceOrganizer/build/CMakeFiles/install.dir
+/home/cpluspluser/Projects/FaceOrganizer/build/CMakeFiles/install/local.dir
+/home/cpluspluser/Projects/FaceOrganizer/build/CMakeFiles/install/strip.dir
