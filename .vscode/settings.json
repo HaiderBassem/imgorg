@@ -1,7 +1,0 @@
-{
-    "cmake.configureSettings": {
-        "CUDAToolkit_ROOT": "/opt/cuda",
-        "CMAKE_CUDA_COMPILER": "/opt/cuda/bin/nvcc"
-    },
-    "cmake.generator": "Unix Makefiles"
-}
