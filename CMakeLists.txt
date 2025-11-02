@@ -18,7 +18,7 @@ if(NVCC)
     enable_language(CUDA)
     set(HAVE_CUDA TRUE)
 else()
-    message(STATUS "⚠️ nvcc not found - building CPU only")
+    message(STATUS "nvcc not found - building CPU only")
     set(HAVE_CUDA FALSE)
 endif()
 
