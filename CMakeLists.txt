@@ -1,19 +1,19 @@
 cmake_minimum_required(VERSION 3.18)
 project(imgorg VERSION 1.0.0 LANGUAGES CXX)
 
-# إعدادات C++
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_BUILD_TYPE Release)
 
-# مسار المخرجات
+
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-# البحث عن CUDA بطريقة مضمونة
+
 find_program(NVCC nvcc PATHS /opt/cuda/bin /usr/local/cuda/bin)
 if(NVCC)
-    message(STATUS "🎯 Found nvcc: ${NVCC}")
+    message(STATUS "Found nvcc: ${NVCC}")
     set(CMAKE_CUDA_COMPILER ${NVCC})
     enable_language(CUDA)
     set(HAVE_CUDA TRUE)
@@ -22,10 +22,10 @@ else()
     set(HAVE_CUDA FALSE)
 endif()
 
-# البحث عن OpenCV
+
 find_package(OpenCV REQUIRED COMPONENTS core imgproc highgui objdetect dnn)
 
-# ملفات المصدر
+
 set(MAIN_SOURCE src/main.cpp)
 set(CORE_SOURCES src/Core/FaceOrganizer.cpp)
 set(FACE_SOURCES
@@ -62,14 +62,14 @@ if(HAVE_CUDA)
     target_compile_definitions(imgorg PRIVATE USE_CUDA_ACCELERATION)
 endif()
 
-# ⚠️ **هذا الجزء مصحح:**
+
 target_include_directories(imgorg PRIVATE  
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Core
     ${CMAKE_CURRENT_SOURCE_DIR}/src/FaceRecognition
     ${CMAKE_CURRENT_SOURCE_DIR}/src/FileSystem
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/GPU    # ⬅️ **صححت من Utils إلى src/GPU**
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/GPU   
     ${CMAKE_CURRENT_SOURCE_DIR}/Utils
     ${OpenCV_INCLUDE_DIRS}
 )
@@ -79,4 +79,4 @@ target_compile_options(imgorg PRIVATE -O3 -march=native)
 
 install(TARGETS imgorg DESTINATION bin)
 
-message(STATUS "🎯 imgorg - CUDA: ${HAVE_CUDA}")
+message(STATUS "imgorg - CUDA: ${HAVE_CUDA}")
