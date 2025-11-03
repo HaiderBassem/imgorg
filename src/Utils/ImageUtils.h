@@ -20,6 +20,10 @@ namespace ImageUtils
     cv::Mat resizeImageByWidth(const cv::Mat& image, int newWidth);
     cv::Mat resizeImageByHight(const cv::Mat& iamge, int newHight);
     cv::Mat cropImage(const cv::Mat& image, const cv::Rect& roi);
+    cv::Mat ropImageSafe(const cv::Mat& image, const cv::Rect& roi, cv::Scalar fillColor = cv::Scalar(0, 0, 0));
+    cv::Mat addPaddingToROI(const cv::Mat& cropped, const cv::Rect& originalROI, const cv::Rect& safeROI, cv::Scalar fillColor);
+    cv::Rect getSafeROI(const cv::Rect& roi, const cv::Size& imageSize);
+    cv::Mat cropImageSafe(const cv::Mat& image, const cv::Rect& roi, cv::Scalar fillColor = cv::Scalar(0, 0, 0));
 
     // color manipulation
     cv::Mat convertToGray(const cv::Mat& image);

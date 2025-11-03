@@ -283,6 +283,127 @@ cv::Mat ImageUtils::resizeImageByHight(const cv::Mat &image, int newHeight)
     return resizeImage(image, cv::Size(newWidth, newHeight));
 }
 
+cv::Mat ImageUtils::cropImage(const cv::Mat &image, const cv::Rect &roi)
+{
+    if(image.empty())
+    {
+        Logger::instance().warning("Connot crop empty image");
+        return cv::Mat();
+    }
+
+    if(roi.x < 0 || roi.y < 0 ||
+       roi.x + roi.width > image.cols ||
+       roi.y + roi.height > image.rows)
+    {
+        Logger::instance().error("ROI out of image bounds: " + std::string("Image(" + std::to_string(image.cols) + "x" + 
+                        std::to_string(image.rows) + "), " +
+                        "ROI(" + std::to_string(roi.x) + "," + 
+                        std::to_string(roi.y) + " " + 
+                        std::to_string(roi.width) + "x" + 
+                        std::to_string(roi.height) + ")"));
+        return cv::Mat();
+    }
+
+    if(roi.width <= 0 || roi.height <= 0)
+    {
+        Logger::instance().error("Invalid ROI dimensions: " + 
+                        std::to_string(roi.width) + "x" + 
+                        std::to_string(roi.height));
+        return cv::Mat();
+
+    }
+
+    // cut the image 
+    cv::Mat croppedImage;
+    try
+    {
+        croppedImage = image(roi).clone(); // copy
+    }
+    catch(const cv::Exception& e)
+    {
+        std::cerr << e.what() << '\n';
+        Logger::instance().error("OpenCV crop failed: " + std::string(e.what()));
+        return cv::Mat();
+    }
+    
+    if(croppedImage.empty())
+    {
+        Logger::instance().error("Crop operation produced empty image");
+        return cv::Mat();
+    }
+
+      Logger::instance().debug("Cropped image: " + 
+                           std::to_string(image.cols) + "x" + std::to_string(image.rows) + 
+                           " -> " + std::to_string(roi.width) + "x" + 
+                           std::to_string(roi.height) + 
+                           " at (" + std::to_string(roi.x) + "," + 
+                           std::to_string(roi.y) + ")");
+    
+    return croppedImage;
+}
+
+cv::Mat ImageUtils::cropImageSafe(const cv::Mat& image, const cv::Rect& roi, cv::Scalar fillColor)
+{
+    if (image.empty()) 
+    {
+        Logger::instance().error("Cannot crop empty image");
+        return cv::Mat();
+    }
+
+
+    cv::Rect safeRoi = ImageUtils::getSafeROI(roi, image.size());
+    
+
+    if (safeRoi.width <= 0 || safeRoi.height <= 0) 
+    {
+        Logger::instance().error("ROI completely outside image bounds");
+        return cv::Mat();
+    }
+
+
+    cv::Mat cropped = image(safeRoi).clone();
+
+    if (safeRoi != roi) 
+        cropped = ImageUtils::addPaddingToROI(cropped, roi, safeRoi, fillColor);
+
+    return cropped;
+}
+
+cv::Rect ImageUtils::getSafeROI(const cv::Rect& roi, const cv::Size& imageSize)
+{
+    int x = std::max(0, roi.x);
+    int y = std::max(0, roi.y);
+    int width = std::min(roi.width, imageSize.width - x);
+    int height = std::min(roi.height, imageSize.height - y);
+    
+
+    width = std::max(0, width);
+    height = std::max(0, height);
+    
+    return cv::Rect(x, y, width, height);
+}
+
+cv::Mat ImageUtils::addPaddingToROI(const cv::Mat& cropped, const cv::Rect& originalROI, 
+                                   const cv::Rect& safeROI, cv::Scalar fillColor)
+{
+
+    int padLeft = safeROI.x - originalROI.x;
+    int padTop = safeROI.y - originalROI.y;
+    int padRight = originalROI.width - safeROI.width - padLeft;
+    int padBottom = originalROI.height - safeROI.height - padTop;
+
+    // تطبيق التعبئة
+    cv::Mat padded;
+    cv::copyMakeBorder(cropped, padded, 
+                      padTop, padBottom, padLeft, padRight, 
+                      cv::BORDER_CONSTANT, fillColor);
+
+    Logger::instance().debug("Added padding to ROI: " + std::string(
+                           "L:" + std::to_string(padLeft) + " R:" + std::to_string(padRight) +
+                           " T:" + std::to_string(padTop) + " B:" + std::to_string(padBottom)));
+    
+    return padded;
+}
 
 int ImageUtils::getOptimalInterpolation(const cv::Size& originalSize, const cv::Size& targetSize)
 {
