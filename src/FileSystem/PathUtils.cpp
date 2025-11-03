@@ -10,7 +10,7 @@ std::string PathUtils::getFileName(const std::string &fullPath)
     return path.filename().string();
 }
 
-std::string PathUtils::getFileExetension(const std::string &filePath)
+std::string PathUtils::getFileExtension(const std::string &filePath)
 {
     std::filesystem::path path(filePath);
     return path.extension().string();
@@ -23,7 +23,7 @@ std::string PathUtils::combinePaths(const std::string &path1, const std::string 
     return (p1/p2).string();
 }
 
-bool PathUtils::isImageExetension(const std::string &exe)
+bool PathUtils::isImageExtension(const std::string &exe)
 {
     static const std::vector<std::string> imageExetension = {
         ".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif",

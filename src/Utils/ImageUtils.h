@@ -6,8 +6,14 @@
 
 namespace ImageUtils
 {
-    cv::Mat loadImage(const std::string& filePath);
+    cv::Mat loadImage(const std::string &filePath);
+    cv::Mat loadImage(const std::string &filePath, int flags);
     bool isValidImage(const std::string& filePath);
+    bool isValidImage(const std::string& filePath, bool performDeepCheck);
+    
+
+    bool performDeepImageValidation(const cv::Mat& image, const std::string& filePath);
+    bool isImageCompletelyBlack(const cv::Mat& image);
     bool saveImage(const cv::Mat image, const std::string& filePath);
 
     cv::Mat resizeImage(const cv::Mat& image, const cv::Size& newSize);
@@ -34,6 +40,8 @@ namespace ImageUtils
     int getImageChannels(const cv::Mat& image);
     std::string getImageInfo(const std::string& filePath);
     double calculateImageQuality(const cv::Mat& image);
+    int getOptimalInterpolation(const cv::Size& originalSize, const cv::Size& targetSize);
+    std::string getInterpolationName(int interpolation);
 
 
     // face Detector
