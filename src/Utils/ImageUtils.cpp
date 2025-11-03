@@ -178,36 +178,44 @@ bool ImageUtils::isImageCompletelyBlack(const cv::Mat& image)
     return maxVal == 0;
 }
 
-bool ImageUtils::saveImage(const cv::Mat image, const std::string &filePath)
+bool ImageUtils::saveImage(const cv::Mat& image, const std::string& filePath)
 {
-    if(image.empty())
-    {
-        Logger::instance().warning("Connot save empty image to: " + filePath);
-        return false;
-    }
-    std::string parentDir = PathUtils::getParentDirectory(filePath);
-    if(!parentDir.empty() && !PathUtils::createDirectoryIfNotExists(parentDir))
-    {
-        Logger::instance().error("Failed to create directory: " + parentDir);
+    if (image.empty()) {
+        Logger::instance().error("Cannot save empty image to: " + filePath);
         return false;
     }
 
-    bool success = cv::imwrite(filePath, image);
-    if(!success)
-    {
-        Logger::instance().error("Failed to save image to: " + filePath);
+
+    std::string absolutePath = PathUtils::getAbsolutePath(filePath);
+    std::string parentDir = PathUtils::getParentDirectory(absolutePath);
+
+
+    if (!parentDir.empty() && 
+        parentDir != "/" && 
+        parentDir != "/home" && 
+        !PathUtils::fileExists(parentDir)) {
+        
+        if (!PathUtils::createDirectoryIfNotExists(parentDir)) {
+            Logger::instance().error("Failed to create directory: " + parentDir);
+            return false;
+        }
+    }
+
+
+    bool success = cv::imwrite(absolutePath, image);
+    
+    if (!success) {
+        Logger::instance().error("Failed to save image to: " + absolutePath);
         return false;
     }
 
-    if (!PathUtils::fileExists(filePath)) 
-    {
-        Logger::instance().error("File was not created after save: " + filePath);
+
+    if (!PathUtils::fileExists(absolutePath)) {
+        Logger::instance().error("File verification failed: " + absolutePath);
         return false;
     }
-        Logger::instance().debug("Successfully saved image: " + filePath + 
-                           " [Size: " + std::to_string(image.cols) + "x" + 
-                           std::to_string(image.rows) + ", Channels: " + 
-                           std::to_string(image.channels()) + "]");
+
+    Logger::instance().info("Image saved: " + absolutePath);
     return true;
 }
 
@@ -342,6 +350,59 @@ cv::Mat ImageUtils::cropImage(const cv::Mat &image, const cv::Rect &roi)
     return croppedImage;
 }
 
+cv::Mat ImageUtils::ropImageSafe(const cv::Mat &image, const cv::Rect &roi, cv::Scalar fillColor)
+{
+    if(image.empty())
+    {
+        Logger::instance().error("Connot crop empty image");
+        return cv::Mat();
+    }
+    cv::Rect safeRoi = ImageUtils::getSafeROI(roi, image.size());
+
+    if(safeRoi.width <= 0 || safeRoi.height <= 0)
+    {
+        Logger::instance().warning("ROI completely outside image bounds, creating filled image");
+        
+        cv::Mat filledImage(roi.height, roi.width, image.type(), fillColor);
+        Logger::instance().debug("Created filled image: " + 
+                std::to_string(roi.width) + "x" + 
+                std::to_string(roi.height));
+        return filledImage;
+    }
+
+    cv::Mat cropped;
+    try
+    {
+        cropped = image(safeRoi).clone();
+    }
+    catch(const cv::Exception& e)
+    {
+        std::cerr << e.what() << '\n';
+        Logger::instance().error("OpenCV crop failed: " + std::string(e.what()));
+        return cv::Mat();
+    }
+    
+    if(safeRoi != roi)
+        cropped = ImageUtils::addPaddingToROI(cropped, roi, safeRoi, fillColor);
+    
+    if(cropped.empty())
+    {
+        Logger::instance().error("Crop operation produced empty image");
+        return cv::Mat();
+    }
+
+    Logger::instance().debug("Safe crop completed: " + 
+            std::to_string(image.cols) + "x" + std::to_string(image.rows) + 
+            " -> " + std::to_string(roi.width) + "x" + 
+            std::to_string(roi.height) + 
+            " [Safe ROI: " + std::to_string(safeRoi.x) + "," + 
+            std::to_string(safeRoi.y) + " " + 
+            std::to_string(safeRoi.width) + "x" + 
+            std::to_string(safeRoi.height) + "]");
+
+    return cropped;
+}
+
 cv::Mat ImageUtils::cropImageSafe(const cv::Mat& image, const cv::Rect& roi, cv::Scalar fillColor)
 {
     if (image.empty()) 
@@ -367,6 +428,58 @@ cv::Mat ImageUtils::cropImageSafe(const cv::Mat& image, const cv::Rect& roi, cv:
         cropped = ImageUtils::addPaddingToROI(cropped, roi, safeRoi, fillColor);
 
     return cropped;
+}
+
+cv::Mat ImageUtils::convertToGray(const cv::Mat &image)
+{
+    if (image.empty()) 
+    {
+        Logger::instance().error("Cannot convert empty image to grayscale");
+        return cv::Mat();
+    }
+    if(image.channels() == 1)
+    {
+        Logger::instance().debug("Image is already grayscale, returning copy");
+        return image.clone();
+    }
+
+    cv::Mat grayImage;
+    try
+    {
+        if(image.channels() == 3)
+            cv::cvtColor(image, grayImage, cv::COLOR_BGR2GRAY);
+        else if (image.channels() == 4)
+            cv::cvtColor(image, grayImage, cv::COLOR_BGR2GRAY);
+        else 
+        {
+            Logger::instance().warning("Unsupported number of channels: " + std::to_string(image.channels()));
+            return cv::Mat();
+        }
+    }
+    catch(const std::exception& e)
+    {
+        std::cerr << e.what() << '\n';
+        Logger::instance().error("OpenCV grayscale conversion failed: " + 
+                               std::string(e.what()));
+        return cv::Mat();
+    }
+    
+    if(grayImage.empty())
+    {
+        Logger::instance().error("Grayscale conversion produced empty image");
+        return cv::Mat();
+    }
+    Logger::instance().debug("Converted to grayscale: " + 
+                           std::to_string(image.cols) + "x" + std::to_string(image.rows) + 
+                           " [" + std::to_string(image.channels()) + "ch -> 1ch]");
+    
+    return grayImage;
+
+}
+
+cv::Mat ImageUtils::equalizeHistogram(const cv::Mat &image)
+{
+    return cv::Mat();
 }
 
 cv::Rect ImageUtils::getSafeROI(const cv::Rect& roi, const cv::Size& imageSize)

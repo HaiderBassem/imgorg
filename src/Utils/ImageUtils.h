@@ -14,7 +14,8 @@ namespace ImageUtils
 
     bool performDeepImageValidation(const cv::Mat& image, const std::string& filePath);
     bool isImageCompletelyBlack(const cv::Mat& image);
-    bool saveImage(const cv::Mat image, const std::string& filePath);
+    bool saveImage(const cv::Mat& image, const std::string& filePath);
+
 
     cv::Mat resizeImage(const cv::Mat& image, const cv::Size& newSize);
     cv::Mat resizeImageByWidth(const cv::Mat& image, int newWidth);
