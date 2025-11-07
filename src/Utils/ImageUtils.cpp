@@ -825,10 +825,71 @@ int ImageUtils::getImageChannels(const cv::Mat &image)
     return 0;
 }
 
-// std::string ImageUtils::getImageInfo(const std::string &filePath)
-// {
-//     return std::string();
-// }
+std::string ImageUtils::getImageInfo(const std::string &filePath)
+{
+    if (filePath.empty()) 
+    {
+        Logger::instance().error("Cannot get info of empty file path");
+        return "Error: Empty file path";
+    }
+
+    try
+    {
+        cv::Mat image = cv::imread(filePath, cv::IMREAD_UNCHANGED);
+        if(image.empty())
+        {
+            return "ERORR: Failed to load image or file not found: " + filePath;
+        }
+        std::stringstream info;
+        info <<"File: " << filePath<<"\n";
+        info <<"Size: " << image.cols << "x" <<image.rows << "pixels\n";
+        info <<"Channels: " << image.channels() <<" ";
+
+        switch (image.channels())
+        {
+            case 1: info <<"(Grayscale)"; break;
+            case 3: info <<"(BRG Color)"; break;
+            case 4: info <<"(BGRA with Alpha)"; break;
+            
+            default:
+                info << "(Unknown)";break;
+        }
+        info <<"\n";
+        
+        info <<"Depth: ";
+        switch (image.depth())
+        {
+            case CV_8U: info << "8-bit unsigned"; break;
+            case CV_8S: info << "8-bit signed"; break;
+            case CV_16U: info << "16-bit unsigned"; break;
+            case CV_16S: info << "16-bit signed"; break;
+            case CV_32S: info << "32-bit signed"; break;
+            case CV_32F: info << "32-bit float"; break;
+            case CV_64F: info << "64-bit float"; break;
+            default: info << "Unknown"; break;
+        }
+        info << "\n";
+
+        info << "Type: CV_" << (image.channels() * 8) << image.depth() << "C" << image.channels() << "\n";
+        info << "Total Pixels: " << image.total() << "\n";
+        info << "Memory Size: " << (image.total() * image.elemSize()) << " bytes";
+
+         std::string result = info.str();
+        Logger::instance().debug("Image info: " + result);
+        
+        return result;
+    }
+    catch(const std::exception& e)
+    {
+        
+        std::string error = "Error getting image info: " + std::string(e.what());
+        std::cerr << error;
+        Logger::instance().error(error);
+        return error;
+    
+    }
+    
+}
 
 cv::Rect ImageUtils::getSafeROI(const cv::Rect& roi, const cv::Size& imageSize)
 {
