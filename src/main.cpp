@@ -7,4 +7,5 @@ int main()
     ImageUtils::saveImage(ImageUtils::convertToGray(img), "/home/cpluspluser/Desktop/test.png");
     //std::cout<< ImageUtils::isValidImage("/home/cpluspluser/Desktop/Screenshot_20251103_204820.png",1);
     return 0;
+    
 }
