@@ -35,8 +35,8 @@ namespace ImageUtils
 
     //rtoeation 
     cv::Mat rotateImage(const cv::Mat& iamge, double angle);
-    cv::Mat flipHorizantal(const cv::Mat& iamge);
-    cv::Mat flipVertical(const cv::Mat& image);
+    cv::Mat flipHorizontally(const cv::Mat& iamge);
+    cv::Mat flipVertically(const cv::Mat& image);
 
 
     // inforamtion of image 

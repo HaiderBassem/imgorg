@@ -25,7 +25,9 @@ cv::Mat ImageUtils::loadImage(const std::string &filePath, int flags)
 
     if(image.empty() && flags != cv::IMREAD_COLOR)
     {
+#ifdef DEBUG_MODE
         Logger::instance().debug("Retrying to load image as COLOR: " + filePath);
+#endif
         image = cv::imread(filePath, cv::IMREAD_COLOR);
     }
 
@@ -43,11 +45,12 @@ cv::Mat ImageUtils::loadImage(const std::string &filePath, int flags)
         case cv::IMREAD_UNCHANGED: mode = "UNCHANGED"; break;
         default: mode = "COLOR";
     }
-    
+#ifdef DEBUG_MODE
     Logger::instance().debug("Loaded image: " + filePath + 
                            " [Size: " + std::to_string(image.cols) + "x" + 
                            std::to_string(image.rows) + ", Channels: " + 
                            std::to_string(image.channels()) + ", Mode: " + mode + "]");
+#endif
     
     return image;
 }
@@ -63,14 +66,14 @@ bool ImageUtils::isValidImage(const std::string& filePath)
 
     if (!PathUtils::fileExists(filePath)) 
     {
-        Logger::instance().debug("File does not exist: " + filePath);
+        Logger::instance().warning("File does not exist: " + filePath);
         return false;
     }
 
     const std::string ext = PathUtils::getFileExtension(filePath);
     if (!PathUtils::isImageExtension(ext)) 
     {
-        Logger::instance().debug("File extension not supported: " + filePath);
+        Logger::instance().warning("File extension not supported: " + filePath);
         return false;
     }
 
@@ -88,10 +91,12 @@ bool ImageUtils::isValidImage(const std::string& filePath)
         Logger::instance().debug("Image has invalid dimensions: " + filePath);
         return false;
     }
+#ifdef DEBUG_MODE
 
     Logger::instance().debug("Image is valid: " + filePath + 
                            " [Size: " + std::to_string(testImage.cols) + "x" + 
                            std::to_string(testImage.rows) + "]");
+#endif
     return true;
 }
 
@@ -127,7 +132,7 @@ bool ImageUtils::performDeepImageValidation(const cv::Mat& image, const std::str
 
     if (image.channels() != 1 && image.channels() != 3 && image.channels() != 4) 
     {
-        Logger::instance().debug("Invalid number of channels: " + filePath);
+        Logger::instance().warning("Invalid number of channels: " + filePath);
         return false;
     }
 
@@ -135,19 +140,19 @@ bool ImageUtils::performDeepImageValidation(const cv::Mat& image, const std::str
     int depth = image.depth();
     if (depth != CV_8U && depth != CV_16U && depth != CV_32F) 
     {
-        Logger::instance().debug("Unsupported image depth: " + filePath);
+        Logger::instance().warning("Unsupported image depth: " + filePath);
         return false;
     }
 
     if (isImageCompletelyBlack(image)) 
     {
-        Logger::instance().debug("Image appears to be completely black: " + filePath);
+        Logger::instance().warning("Image appears to be completely black: " + filePath);
         return false;
     }
 
     if (image.cols < 10 || image.rows < 10) 
     {
-        Logger::instance().debug("Image too small: " + filePath);
+        Logger::instance().warning("Image too small: " + filePath);
         return false;
     }
 
@@ -229,8 +234,11 @@ cv::Mat ImageUtils::resizeImage(const cv::Mat &image, const cv::Size &newSize)
 
     if(image.size() == newSize)
     {
+#ifdef DEBUG_MODE
         Logger::instance().debug("Image already at target size, returning copy");
+#endif
         return image.clone(); // return copy
+        
     }
 
     int interpolation = ImageUtils::getOptimalInterpolation(image.size(), newSize);
@@ -252,12 +260,13 @@ cv::Mat ImageUtils::resizeImage(const cv::Mat &image, const cv::Size &newSize)
         Logger::instance().error("Resize operation produced empty image");
         return cv::Mat();
     }
-    
+#ifdef DEBUG_MODE
 Logger::instance().debug("Resized image: " + 
                            std::to_string(image.cols) + "x" + std::to_string(image.rows) + 
                            " -> " + std::to_string(newSize.width) + "x" + 
                            std::to_string(newSize.height) + 
                            " [Interpolation: " + getInterpolationName(interpolation) + "]");
+#endif
     
     return resizedImage;
 }
@@ -339,14 +348,14 @@ cv::Mat ImageUtils::cropImage(const cv::Mat &image, const cv::Rect &roi)
         Logger::instance().error("Crop operation produced empty image");
         return cv::Mat();
     }
-
+     #ifdef DEBUG_MODE
       Logger::instance().debug("Cropped image: " + 
                            std::to_string(image.cols) + "x" + std::to_string(image.rows) + 
                            " -> " + std::to_string(roi.width) + "x" + 
                            std::to_string(roi.height) + 
                            " at (" + std::to_string(roi.x) + "," + 
                            std::to_string(roi.y) + ")");
-    
+    #endif
     return croppedImage;
 }
 
@@ -390,7 +399,7 @@ cv::Mat ImageUtils::ropImageSafe(const cv::Mat &image, const cv::Rect &roi, cv::
         Logger::instance().error("Crop operation produced empty image");
         return cv::Mat();
     }
-
+     #ifdef DEBUG_MODE
     Logger::instance().debug("Safe crop completed: " + 
             std::to_string(image.cols) + "x" + std::to_string(image.rows) + 
             " -> " + std::to_string(roi.width) + "x" + 
@@ -399,6 +408,7 @@ cv::Mat ImageUtils::ropImageSafe(const cv::Mat &image, const cv::Rect &roi, cv::
             std::to_string(safeRoi.y) + " " + 
             std::to_string(safeRoi.width) + "x" + 
             std::to_string(safeRoi.height) + "]");
+            #endif
 
     return cropped;
 }
@@ -419,6 +429,7 @@ cv::Mat ImageUtils::cropImageSafe(const cv::Mat& image, const cv::Rect& roi, cv:
     {
         Logger::instance().error("ROI completely outside image bounds");
         return cv::Mat();
+
     }
 
 
@@ -439,8 +450,11 @@ cv::Mat ImageUtils::convertToGray(const cv::Mat &image)
     }
     if(image.channels() == 1)
     {
+        #ifdef DEBUG_MODE
         Logger::instance().debug("Image is already grayscale, returning copy");
+        #endif
         return image.clone();
+
     }
 
     cv::Mat grayImage;
@@ -469,18 +483,352 @@ cv::Mat ImageUtils::convertToGray(const cv::Mat &image)
         Logger::instance().error("Grayscale conversion produced empty image");
         return cv::Mat();
     }
+        #ifdef DEBUG_MODE
     Logger::instance().debug("Converted to grayscale: " + 
                            std::to_string(image.cols) + "x" + std::to_string(image.rows) + 
                            " [" + std::to_string(image.channels()) + "ch -> 1ch]");
+        #endif
     
     return grayImage;
 
 }
 
+
 cv::Mat ImageUtils::equalizeHistogram(const cv::Mat &image)
 {
-    return cv::Mat();
+    if(image.empty())
+    {
+        Logger::instance().error("Cannot equalize histogram of empty image");
+        return cv::Mat();
+    }
+    cv::Mat equlized;
+    try
+    {
+        cv::Mat grayImage;
+        if(image.channels() == 3) 
+            cv::cvtColor(image, grayImage, cv::COLOR_BGR2GRAY);
+        else
+            grayImage = image.clone();
+        
+        cv::equalizeHist(grayImage, equlized);
+    }
+    catch(const cv::Exception& e)
+    {
+        std::cerr << e.what() << '\n';
+        Logger::instance().error("Histogram equalization failed: " + std::string(e.what()));
+        return cv::Mat();
+    }
+    
+    if(equlized.empty())
+    {
+        Logger::instance().error("Histogram equalization produced empty image");
+        return cv::Mat();
+    }
+         #ifdef DEBUG_MODE
+        Logger::instance().debug("Equalized image histogram: " + 
+                       std::to_string(image.cols) + "x" + std::to_string(image.rows) + 
+                       " [Range: 0-255]");
+        #endif
+
+    return equlized;
 }
+
+cv::Mat ImageUtils::normalizeImage(const cv::Mat &image)
+{
+    if (image.empty()) 
+    {
+        Logger::instance().error("Cannot normalize empty image");
+        return cv::Mat();
+    }
+
+    cv::Mat normalized;
+    try
+    {
+        cv::Mat floatImage;
+        image.convertTo(floatImage, CV_32F);
+
+        cv::normalize(floatImage, normalized, 0.0, 1.0, cv::NORM_MINMAX);
+        normalized.convertTo(normalized, CV_8U, 255.0);
+    }
+    catch(const cv::Exception& e)
+    {
+        std::cerr << e.what() << '\n';
+        Logger::instance().error("Image normalization failed: " + std::string(e.what()));
+        return cv::Mat();
+    }
+
+    if(normalized.empty())
+    {
+       Logger::instance().error("Normalization produced empty image");
+        return cv::Mat();
+    }
+        #ifdef DEBUG_MODE
+        Logger::instance().debug("Normalized image: " + 
+                           std::to_string(image.cols) + "x" + std::to_string(image.rows) + 
+                           " [Range: 0-255]");
+        #endif
+    
+    return normalized;
+}
+
+cv::Mat ImageUtils::adjustBrightnessContrast(const cv::Mat &image, double alpha, double beta)
+{
+    if(image.empty())
+    {
+        Logger::instance().error("Cannot adjust brightness/contrast of empty image");
+        return cv::Mat();
+    }
+    cv::Mat adjusted;
+    try
+    {
+        image.convertTo(adjusted, -1, alpha, beta);
+        adjusted = cv::max(0, cv::min(255, adjusted)); 
+    }
+    catch(const cv::Exception& e)
+    {
+        std::cerr << e.what() << '\n';
+        Logger::instance().error("Brightness/contrast adjustment failed: " + std::string(e.what()));
+        return cv::Mat();
+    }
+    if(adjusted.empty())
+    {
+        Logger::instance().error("Brightness/contrast adjustment produced empty image");
+        return cv::Mat();
+    }
+    #ifdef DEBUG_MODE
+    Logger::instance().debug("Adjusted brightness/contrast: " + 
+            std::to_string(image.cols) + "x" + std::to_string(image.rows) + 
+            " [Alpha: " + std::to_string(alpha) + 
+            ", Beta: " + std::to_string(beta) + "]");
+    #endif
+    return adjusted;
+    
+}
+cv::Mat ImageUtils::rotateImage(const cv::Mat& image, double angle)
+{
+    if (image.empty()) 
+    {
+        Logger::instance().error("Cannot rotate empty image");
+        return cv::Mat();
+    }
+
+    cv::Mat rotated;
+    try
+    {
+
+        cv::Point2f center(image.cols / 2.0f, image.rows / 2.0f);
+
+        cv::Mat rotationMatrix = cv::getRotationMatrix2D(center, angle, 1.0);
+
+        double radians = angle * CV_PI / 180.0;
+        double sinVal = std::abs(std::sin(radians));
+        double cosVal = std::abs(std::cos(radians));
+        
+        int newWidth = int(image.rows * sinVal + image.cols * cosVal);
+        int newHeight = int(image.rows * cosVal + image.cols * sinVal);
+
+        rotationMatrix.at<double>(0, 2) += (newWidth / 2.0) - center.x;
+        rotationMatrix.at<double>(1, 2) += (newHeight / 2.0) - center.y;
+
+        cv::warpAffine(image, rotated, rotationMatrix, cv::Size(newWidth, newHeight),
+                      cv::INTER_LINEAR, cv::BORDER_CONSTANT, cv::Scalar(0, 0, 0));
+    }
+    catch(const cv::Exception& e)
+    {
+        std::cerr << e.what() << '\n';
+        Logger::instance().error("Image rotation failed: " + std::string(e.what()));
+        return cv::Mat();
+    }
+
+    if(rotated.empty())
+    {
+        Logger::instance().error("Rotation produced empty image");
+        return cv::Mat();
+    }
+    #ifdef DEBUG_MODE
+    Logger::instance().debug("Rotated image: " + 
+                       std::to_string(image.cols) + "x" + std::to_string(image.rows) + 
+                       " -> " + std::to_string(rotated.cols) + "x" + std::to_string(rotated.rows) +
+                       " [Angle: " + std::to_string(angle) + "°]");
+    #endif
+    return rotated;
+}
+
+// ex: if the image input has text hello, the output will be olleh
+cv::Mat ImageUtils::flipHorizontally(const cv::Mat& image)
+{
+    if (image.empty()) 
+    {
+        Logger::instance().error("Cannot flip empty image");
+        return cv::Mat();
+    }
+
+    cv::Mat flipped;
+    try
+    {
+
+        cv::flip(image, flipped, 1);
+    }
+    catch(const cv::Exception& e)
+    {
+        std::cerr << e.what() << '\n';
+        Logger::instance().error("Horizontal flip failed: " + std::string(e.what()));
+        return cv::Mat();
+    }
+
+    if(flipped.empty())
+    {
+        Logger::instance().error("Horizontal flip produced empty image");
+        return cv::Mat();
+    }
+     #ifdef DEBUG_MODE
+    Logger::instance().debug("Horizontally flipped image: " + 
+                       std::to_string(image.cols) + "x" + std::to_string(image.rows));
+    #endif
+    
+    return flipped;
+}
+
+cv::Mat ImageUtils::flipVertically(const cv::Mat &image)
+{
+    if(image.empty())
+    {
+        Logger::instance().error("Cannot flip empty image");
+        return cv::Mat();
+    }
+
+    cv::Mat flipped;
+    try
+    {
+        cv::flip(image, flipped, 0);
+    }
+    catch(const cv::Exception& e)
+    {
+        std::cerr << e.what() << '\n';
+        Logger::instance().error("Vertical flip failed: " + std::string(e.what()));
+        return cv::Mat();
+    }
+    if(flipped.empty())
+    {
+        Logger::instance().error("Vertical flip produced empty image");
+        return cv::Mat();
+    }
+    Logger::instance().debug("Vertivally fliped image: " + std::to_string(image.cols) + "x" + std::to_string(image.rows));
+
+    
+    return flipped;
+}
+
+cv::Size ImageUtils::getImageSize(const std::string &filePath)
+{
+     if (filePath.empty()) 
+    {
+        Logger::instance().error("Cannot get size of empty file path");
+        return cv::Size();
+    }
+    try
+    {
+        cv::Mat image = cv::imread(filePath, cv::IMREAD_UNCHANGED | cv::IMREAD_IGNORE_ORIENTATION);
+        if(image.empty())
+        {
+            Logger::instance().error("Failed to load image: "+ filePath );
+            return cv::Size();
+        }
+        cv::Size size = image.size();
+        #ifdef DEBUG_MODE
+        Logger::instance().debug("Image Size: " +filePath + " - " + std::to_string(size.width) + "x" + std::to_string(size.height));
+        #endif
+        return size; 
+    }
+    catch(const cv::Exception& e)
+    {
+        std::cerr << e.what() << '\n';
+        Logger::instance().error("Failed to get image size: " + filePath + " - " + std::string(e.what()));
+        return cv::Size();
+    }
+    catch(const std::exception& e)
+    {
+        std::cerr << e.what() << '\n';
+        Logger::instance().error("Error reading file: " + filePath + " - " + std::string(e.what()));
+        return cv::Size();
+    }
+    
+
+}
+
+cv::Size ImageUtils::getImageSize(const cv::Mat &image)
+{
+    if(image.empty())
+    {
+        Logger::instance().error("Cannot get size of empty image");
+        return cv::Size();
+    }
+
+    try
+    {
+        cv::Size size = image.size();
+        #ifdef DEBUG_MODE
+        Logger::instance().debug("Image size: " + 
+                    std::to_string(size.width) + "x" + std::to_string(size.height) +
+                    " [Channels: " + std::to_string(image.channels()) + "]");
+        #endif
+        return size;
+
+    }
+    catch(const cv::Exception& e)
+    {
+        std::cerr << e.what() << '\n';
+        Logger::instance().error("error occured while program is running: " + std::string(e.what()));
+    }
+        catch(const std::exception& e)
+    {
+        std::cerr << e.what() << '\n';
+        Logger::instance().error("error occured while program is running: " + std::string(e.what()));
+    }
+    
+}
+
+int ImageUtils::getImageChannels(const cv::Mat &image)
+{
+    if(image.empty())
+    {
+        Logger::instance().warning("Cannot get number of empty Image channels");
+        return -1;
+    }
+
+    try
+    {
+        
+        int ChannelsCount = image.channels();
+#ifdef DEBUG_MODE
+        Logger::instance().debug("Image channels: " + std::to_string(ChannelsCount) +
+                           " [Size: " + std::to_string(image.cols) + "x" + 
+                           std::to_string(image.rows) + "]");
+#endif
+        return ChannelsCount;
+
+
+    }
+    catch(const cv::Exception& e)
+    {
+        std::cerr << e.what() << '\n';
+        Logger::instance().error("Error getting image channels: " + std::string(e.what()));
+        return -1;
+    }
+    catch(const std::exception& e)
+    {
+        std::cerr << e.what() << '\n';
+        Logger::instance().error("Error getting image channels: " + std::string(e.what()));
+        return -1;
+    }
+    
+    return 0;
+}
+
+// std::string ImageUtils::getImageInfo(const std::string &filePath)
+// {
+//     return std::string();
+// }
 
 cv::Rect ImageUtils::getSafeROI(const cv::Rect& roi, const cv::Size& imageSize)
 {
@@ -505,16 +853,16 @@ cv::Mat ImageUtils::addPaddingToROI(const cv::Mat& cropped, const cv::Rect& orig
     int padRight = originalROI.width - safeROI.width - padLeft;
     int padBottom = originalROI.height - safeROI.height - padTop;
 
-    // تطبيق التعبئة
+
     cv::Mat padded;
     cv::copyMakeBorder(cropped, padded, 
                       padTop, padBottom, padLeft, padRight, 
                       cv::BORDER_CONSTANT, fillColor);
-
+#ifdef DEBUG_MODE
     Logger::instance().debug("Added padding to ROI: " + std::string(
                            "L:" + std::to_string(padLeft) + " R:" + std::to_string(padRight) +
                            " T:" + std::to_string(padTop) + " B:" + std::to_string(padBottom)));
-    
+#endif    
     return padded;
 }
 
