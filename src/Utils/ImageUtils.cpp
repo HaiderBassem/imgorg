@@ -11,7 +11,8 @@
 // IMAGE LOADING & VALIDATION
 // ============================================================================
 
-cv::Mat ImageUtils::loadImage(const std::string &filePath, int flags) {
+cv::Mat ImageUtils::loadImage(const std::string &filePath, int flags) 
+{
     if (filePath.empty()) {
         std::cerr << "[ERROR] Empty file path provided" << std::endl;
         return cv::Mat();
@@ -262,20 +263,18 @@ cv::Mat ImageUtils::cropImageSafe(const cv::Mat &image, const cv::Rect &roi, cv:
         return cv::Mat();
     }
 
-    // الحصول على منطقة آمنة داخل حدود الصورة
+
     cv::Rect safeROI = getSafeROI(roi, image.size());
-    
-    // إذا المنطقة أصبحت فارغة بعد التعديل، ارجع صورة فارغة
+
     if (safeROI.width <= 0 || safeROI.height <= 0) {
         return cv::Mat();
     }
 
-    // إذا المنطقة الأصلية كانت خارج الحدود، نضيف padding
+
     if (safeROI != roi) {
         return addPaddingToROI(image(safeROI).clone(), roi, safeROI, fillColor);
     }
 
-    // إذا المنطقة كلها داخل الحدود، ارجعها مباشرة
     return image(safeROI).clone();
 }
 cv::Rect ImageUtils::getSafeROI(const cv::Rect& roi, const cv::Size& imageSize) {
@@ -579,7 +578,7 @@ std::vector<cv::Point2f> ImageUtils::detectFacialLandmarks(const cv::Mat& faceIm
         return landmarks;
     }
 
-    // Method 3: Try YuNet with enhanced landmarks
+    // Method 3: Try YuNet with  landmarks
     landmarks = detectFacialLandmarksYuNet(faceImage);
     if (!landmarks.empty()) {
         return landmarks;
@@ -697,7 +696,7 @@ std::vector<cv::Point2f> ImageUtils::detectLandmarksHAAR(const cv::Mat& faceImag
         mouthCascade.detectMultiScale(gray, mouths, 1.3, 5, 0, cv::Size(25, 25));
 
         if (!eyes.empty() || !mouths.empty()) {
-            return generateEnhancedLandmarks(faceImage);
+            return generateLandmarks(faceImage);
         }
 
     } catch (const cv::Exception& e) {
@@ -707,7 +706,7 @@ std::vector<cv::Point2f> ImageUtils::detectLandmarksHAAR(const cv::Mat& faceImag
     return std::vector<cv::Point2f>();
 }
 
-std::vector<cv::Point2f> ImageUtils::generateEnhancedLandmarks(const cv::Mat& faceImage) {
+std::vector<cv::Point2f> ImageUtils::generateLandmarks(const cv::Mat& faceImage) {
     std::vector<cv::Point2f> landmarks;
     
     int w = faceImage.cols;
@@ -794,10 +793,11 @@ std::vector<cv::Point2f> ImageUtils::generateEnhancedLandmarks(const cv::Mat& fa
 }
 
 std::vector<cv::Point2f> ImageUtils::generateDefaultLandmarks(const cv::Mat& faceImage) {
-    return generateEnhancedLandmarks(faceImage);
+    return generateLandmarks(faceImage);
 }
 
-std::vector<cv::Rect> ImageUtils::detectFacesEnhanced(const cv::Mat& grayImage) {
+std::vector<cv::Rect> ImageUtils::detectFaces(const cv::Mat& grayImage) 
+{
     std::vector<cv::Rect> faces;
 
     try {
@@ -880,7 +880,7 @@ std::vector<cv::Point2f> ImageUtils::detectFacialLandmarksYuNet(const cv::Mat& f
                                                 faces.at<float>(0, i + 1)));
             }
 
-            // Generate enhanced 68-point landmarks from these 5 key points
+            // Generate  68-point landmarks from these 5 key points
             return generateLandmarksFromKeyPoints(keyPoints, faceImage.size());
         }
 
@@ -1003,7 +1003,7 @@ void ImageUtils::generateMouthLandmarks(const cv::Point2f& right_mouth,
     }
 }
 
-std::vector<cv::Point2f> ImageUtils::getEnhancedFaceLandmarks(const cv::Mat& faceImage) {
+std::vector<cv::Point2f> ImageUtils::getFaceLandmarks(const cv::Mat& faceImage) {
     return detectFacialLandmarks(faceImage);
 }
 
