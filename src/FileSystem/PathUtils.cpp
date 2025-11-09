@@ -59,12 +59,17 @@ bool PathUtils::createDirectoryIfNotExists(const std::string &path)
 {
     try
     {
+
+        if (std::filesystem::exists(path)) {
+            return true;  
+        }
+        
         return std::filesystem::create_directories(path);
     }
     catch(const std::exception& e)
     {
-        std::cerr << "\033\31mFailed to create directory: " << e.what() << "\033[0m\n";
-        Logger::instance().error("Failed to create directory:" + std::string(e.what()));
+        std::cerr << "\033[31mFailed to create directory: " << e.what() << "\033[0m\n";
+        Logger::instance().error("Failed to create directory: " + std::string(e.what()));
         return false;
     }
 }

@@ -1,133 +1,124 @@
 #include "FaceRecognition/FaceDetector.h"
 #include "Utils/ImageUtils.h"
+#include "../FileSystem/PathUtils.h"
+#include <filesystem>
 #include <iostream>
 
-int main() {
-    std::cout << "╔════════════════════════════════════════╗" << std::endl;
-    std::cout << "║     Face Detection Test - Fixed       ║" << std::endl;
-    std::cout << "╚════════════════════════════════════════╝" << std::endl;
+int main(int argc, char* argv[]) {
+    std::string srcFolder;
+    std::string probeImage;
+    std::string dstFolder;
 
-    // المسار الصحيح للصورة
-    std::string imagePath = "/home/cpluspluser/Desktop/Alsaeed.jpg";
+    for (int i = 1; i < argc; i++) {
+        std::string arg = argv[i];
+        if (arg == "-s" && i + 1 < argc) srcFolder = argv[++i];
+        else if (arg == "-p" && i + 1 < argc) probeImage = argv[++i];
+        else if (arg == "-d" && i + 1 < argc) dstFolder = argv[++i];
+    }
 
-    // 
-    std::cout << "\n[1] Checking image..." << std::endl;
-    if (!ImageUtils::isValidImage(imagePath)) {
-        std::cerr << "[ERROR] Image not found or invalid: " << imagePath << std::endl;
+    if (srcFolder.empty() || probeImage.empty() || dstFolder.empty()) {
+        std::cout << "failed - missing parameters" << std::endl;
         return 1;
     }
-    std::cout << "[✓] Image found and valid" << std::endl;
-    std::cout << ImageUtils::getImageInfo(imagePath) << std::endl;
 
-    // 2. إعداد الإعدادات (استخدام DNN فقط لأنه الوحيد الشغال)
-    std::cout << "\n[2] Configuring detector..." << std::endl;
+ 
+    if (!PathUtils::fileExists(probeImage)) {
+        std::cout << "failed - probe image not found: " << probeImage << std::endl;
+        return 1;
+    }
+
+    if (!PathUtils::fileExists(srcFolder)) {
+        std::cout << "failed - source folder not found: " << srcFolder << std::endl;
+        return 1;
+    }
+
+    if (!ImageUtils::isValidImage(probeImage)) {
+        std::cout << "failed - invalid probe image" << std::endl;
+        return 1;
+    }
+
     FaceDetectorConfig config;
-    config.detectionMethod = DetectionMethod::DNN_CAFFE;  // استخدم DNN لأنه شغال
-    config.detectLandmarks = false;  // عطل landmarks لأن models مو موجودة
-    config.minConfidence = 0.5f;
+    config.detectionMethod = DetectionMethod::DNN_CAFFE;
+    config.detectLandmarks = false;
     config.extractFaces = true;
-    config.alignFaces = false;  // عطل alignment لأن landmarks معطلة
+    config.alignFaces = false;
+    config.minConfidence = 0.5f;
 
-    std::cout << "[✓] Using DNN_CAFFE detection (most reliable without models)" << std::endl;
-
-    // 3. إنشاء وتهيئة الكاشف
-    std::cout << "\n[3] Initializing detector..." << std::endl;
     FaceDetector detector(config);
-
     if (!detector.initialize()) {
-        std::cerr << "[ERROR] Failed to initialize detector" << std::endl;
-        if (detector.hasError()) {
-            std::cerr << "Error: " << detector.getLastError() << std::endl;
-        }
+        std::cout << "failed - detector initialization failed" << std::endl;
         return 1;
     }
-    std::cout << "[✓] Detector initialized successfully" << std::endl;
 
-    // 4. كشف الوجوه
-    std::cout << "\n[4] Detecting faces..." << std::endl;
-    auto start = std::chrono::high_resolution_clock::now();
-
-    auto results = detector.detectFaces(imagePath);
-
-    auto end = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-
-    std::cout << "[✓] Detection completed in " << duration.count() << " ms" << std::endl;
-    std::cout << "[✓] Found " << results.size() << " face(s)" << std::endl;
-
-    if (results.empty()) {
-        std::cout << "\n[WARNING] No faces detected!" << std::endl;
-        std::cout << "Try:" << std::endl;
-        std::cout << "  - Lowering minConfidence" << std::endl;
-        std::cout << "  - Using a different image" << std::endl;
-        std::cout << "  - Checking image quality" << std::endl;
-        return 0;
-    }
-
-    // 5. طباعة تفاصيل الوجوه المكتشفة
-    std::cout << "\n[5] Face Details:" << std::endl;
-    for (size_t i = 0; i < results.size(); ++i) {
-        const auto& face = results[i];
-        std::cout << "   Face #" << (i + 1) << ":" << std::endl;
-        std::cout << "     - Position: (" << face.boundingBox.x << ", "
-                  << face.boundingBox.y << ")" << std::endl;
-        std::cout << "     - Size: " << face.boundingBox.width << "x"
-                  << face.boundingBox.height << " pixels" << std::endl;
-        std::cout << "     - Confidence: " << (face.confidence * 100.0f) << "%" << std::endl;
-    }
-
-    // 6. تحميل الصورة الأصلية (نفس المسار!)
-    std::cout << "\n[6] Loading image for visualization..." << std::endl;
-    cv::Mat image = ImageUtils::loadImage(imagePath);
-
-    if (image.empty()) {
-        std::cerr << "[ERROR] Failed to load image for visualization" << std::endl;
+    auto probeFaces = detector.detectFaces(probeImage);
+    if (probeFaces.empty() || probeFaces[0].faceImage.empty()) {
+        std::cout << "failed - no faces found in probe image" << std::endl;
         return 1;
     }
-    std::cout << "[✓] Image loaded: " << image.cols << "x" << image.rows << std::endl;
 
-    // 7. رسم النتائج
-    std::cout << "\n[7] Drawing detections..." << std::endl;
-    cv::Mat output = detector.drawFaceDetections(image, results, false, true);
+    cv::Mat probeFace = probeFaces[0].faceImage;
 
-    if (output.empty()) {
-        std::cerr << "[ERROR] Failed to draw detections" << std::endl;
-        return 1;
-    }
-    std::cout << "[✓] Detections drawn successfully" << std::endl;
+try {
+    std::filesystem::create_directories(dstFolder);
+    std::cout << "Created destination folder: " << dstFolder << std::endl;
+} catch (const std::exception& e) {
+    std::cout << "failed - cannot create destination folder: " << e.what() << std::endl;
+    return 1;
+}
 
-    // 8. حفظ النتيجة
-    std::cout << "\n[8] Saving results..." << std::endl;
-    std::string outputPath = "/home/cpluspluser/Desktop/Hussein_detected.jpg";
+    bool copied = false;
+    int totalImages = 0;
+    int processedImages = 0;
+    int similarFacesFound = 0;
 
-    if (!ImageUtils::saveImage(output, outputPath)) {
-        std::cerr << "[ERROR] Failed to save output image" << std::endl;
-        return 1;
-    }
-    std::cout << "[✓] Results saved to: " << outputPath << std::endl;
-
-    // 9. حفظ الوجوه المستخرجة
-    std::cout << "\n[9] Saving extracted faces..." << std::endl;
-    for (size_t i = 0; i < results.size(); ++i) {
-        if (!results[i].faceImage.empty()) {
-            std::string facePath = "/home/cpluspluser/Desktop/Hussein_face_" +
-                                   std::to_string(i + 1) + ".jpg";
-
-            if (ImageUtils::saveImage(results[i].faceImage, facePath)) {
-                std::cout << "   [✓] Face #" << (i + 1) << " saved to: " << facePath << std::endl;
+  
+    for (auto& file : std::filesystem::directory_iterator(srcFolder)) {
+        if (file.is_regular_file()) {
+            std::string path = file.path().string();
+            if (ImageUtils::isValidImage(path)) {
+                totalImages++;
             }
         }
     }
 
-    // 10. إحصائيات
-    std::cout << "\n╔════════════════════════════════════════╗" << std::endl;
-    std::cout << "║           Statistics                   ║" << std::endl;
-    std::cout << "╚════════════════════════════════════════╝" << std::endl;
-    std::cout << "Total detections: " << detector.getTotalDetections() << std::endl;
-    std::cout << "Average confidence: " << (detector.getAverageConfidence() * 100) << "%" << std::endl;
-    std::cout << "Detection time: " << duration.count() << " ms" << std::endl;
+    std::cout << "Searching in " << totalImages << " images..." << std::endl;
 
-    std::cout << "\n[✓✓✓] All operations completed successfully! [✓✓✓]" << std::endl;
+    for (auto& file : std::filesystem::directory_iterator(srcFolder)) {
+        if (!file.is_regular_file()) continue;
 
+        std::string path = file.path().string();
+        if (!ImageUtils::isValidImage(path)) continue;
+
+        processedImages++;
+
+    
+        if (processedImages % 10 == 0) {
+            std::cout << "Processed " << processedImages << "/" << totalImages << " images..." << std::endl;
+        }
+
+        auto faces = detector.detectFaces(path);
+        for (auto& f : faces) {
+            if (f.faceImage.empty()) continue;
+
+            double score = detector.compareFaces(probeFace, f.faceImage);
+
+           
+            if (score >= 0.3) {  
+                std::cout << "Similarity score: " << score << " in " << PathUtils::getFileName(path) << std::endl;
+            }
+
+            if (score >= 5) {      // similarity threshold
+                std::string destPath = dstFolder + "/" + file.path().filename().string();
+                std::filesystem::copy(path, destPath, std::filesystem::copy_options::overwrite_existing);
+                copied = true;
+                similarFacesFound++;
+                std::cout << "COPIED: " << PathUtils::getFileName(path) << " (score: " << score << ")" << std::endl;
+                break;
+            }
+        }
+    }
+
+    std::cout << "Processed " << processedImages << " images, found " << similarFacesFound << " similar faces" << std::endl;
+    std::cout << (copied ? "done" : "failed - no similar faces found") << std::endl;
     return 0;
 }

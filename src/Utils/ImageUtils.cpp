@@ -256,27 +256,42 @@ cv::Mat ImageUtils::cropImage(const cv::Mat &image, const cv::Rect &roi) {
     return image(roi).clone();
 }
 
+
 cv::Mat ImageUtils::cropImageSafe(const cv::Mat &image, const cv::Rect &roi, cv::Scalar fillColor) {
     if (image.empty()) {
         return cv::Mat();
     }
 
+    // الحصول على منطقة آمنة داخل حدود الصورة
     cv::Rect safeROI = getSafeROI(roi, image.size());
-    cv::Mat cropped = image(safeROI).clone();
-
-    // If original ROI was outside bounds, add padding
-    if (safeROI != roi) {
-        cropped = addPaddingToROI(cropped, roi, safeROI, fillColor);
+    
+    // إذا المنطقة أصبحت فارغة بعد التعديل، ارجع صورة فارغة
+    if (safeROI.width <= 0 || safeROI.height <= 0) {
+        return cv::Mat();
     }
 
-    return cropped;
-}
+    // إذا المنطقة الأصلية كانت خارج الحدود، نضيف padding
+    if (safeROI != roi) {
+        return addPaddingToROI(image(safeROI).clone(), roi, safeROI, fillColor);
+    }
 
+    // إذا المنطقة كلها داخل الحدود، ارجعها مباشرة
+    return image(safeROI).clone();
+}
 cv::Rect ImageUtils::getSafeROI(const cv::Rect& roi, const cv::Size& imageSize) {
+    if (roi.width <= 0 || roi.height <= 0) {
+        return cv::Rect(0, 0, 0, 0);
+    }
+    
     int x = std::max(0, roi.x);
     int y = std::max(0, roi.y);
     int width = std::min(roi.width, imageSize.width - x);
     int height = std::min(roi.height, imageSize.height - y);
+    
+    // checking 
+    if (width <= 0 || height <= 0) {
+        return cv::Rect(0, 0, 0, 0);
+    }
     
     return cv::Rect(x, y, width, height);
 }
@@ -540,6 +555,7 @@ cv::Mat ImageUtils::extractFace(const cv::Mat &image, const cv::Rect &faceRect,
         expandedRect.height += 2 * padY;
     }
 
+    // استخدم cropImageSafe بدل ما نعمل الحسابات يدوي
     return cropImageSafe(image, expandedRect, cv::Scalar(0, 0, 0));
 }
 

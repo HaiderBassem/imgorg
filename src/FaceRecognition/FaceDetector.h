@@ -118,6 +118,23 @@ public:
     std::vector<FaceDetectionResult> detectFaces(const std::string& imagePath);
     std::vector<FaceDetectionResult> detectFacesMultiScale(const cv::Mat& image);
     
+
+    // Face comparison and recognition
+    double compareFaces(const cv::Mat& face1, const cv::Mat& face2);
+    double compareFaces(const FaceDetectionResult& face1, const FaceDetectionResult& face2);
+    std::vector<std::pair<double, cv::Rect>> findSimilarFaces(const cv::Mat& probeFace, const cv::Mat& image);
+    std::vector<std::pair<double, std::string>> findSimilarFacesInFolder(const cv::Mat& probeFace, const std::string& folderPath);
+
+    double compareFacesHistogram(const cv::Mat &face1, const cv::Mat &face2);
+
+    double compareFacesSSIM(const cv::Mat &face1, const cv::Mat &face2);
+
+    double compareFacesFeatures(const cv::Mat &face1, const cv::Mat &face2);
+
+    double compareFacesEmbeddings(const cv::Mat &face1, const cv::Mat &face2);
+
+    cv::Mat calculateLBP(const cv::Mat &src);
+
     // Batch processing
     std::vector<std::vector<FaceDetectionResult>> detectFacesBatch(
         const std::vector<cv::Mat>& images,
@@ -203,7 +220,8 @@ public:
 private:
     // Internal methods
     void preprocessImage(const cv::Mat& input, cv::Mat& output);
-    cv::Rect expandFaceRect(const cv::Rect& rect, const cv::Size& imageSize, float padding);
+    cv::Rect getSafeFaceRect(const cv::Rect &rect, const cv::Size &imageSize);
+    cv::Rect expandFaceRect(const cv::Rect &rect, const cv::Size &imageSize, float padding);
     std::vector<cv::Point2f> getEyePositions(const std::vector<cv::Point2f>& landmarks);
     cv::Mat getRotationMatrix(const cv::Point2f& leftEye, const cv::Point2f& rightEye);
     std::vector<cv::Point2f> transformLandmarks(const std::vector<cv::Point2f>& landmarks,

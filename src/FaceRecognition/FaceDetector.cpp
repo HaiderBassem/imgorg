@@ -1,5 +1,6 @@
 #include "FaceDetector.h"
 #include "../Utils/ImageUtils.h"
+#include<filesystem>
 #include <iostream>
 #include <algorithm>
 #include <numeric>
@@ -385,6 +386,325 @@ std::vector<FaceDetectionResult> FaceDetector::detectFacesMultiScale(const cv::M
     
     return finalResults;
 }
+
+
+
+// ============================================================================
+// FACE COMPARISON & RECOGNITION
+// ============================================================================
+
+double FaceDetector::compareFaces(const cv::Mat& face1, const cv::Mat& face2) {
+    if (face1.empty() || face2.empty()) {
+        return 0.0;
+    }
+    
+    try {
+        // Method 1: Histogram comparison (fast and effective)
+        double histScore = compareFacesHistogram(face1, face2);
+        
+        // Method 2: Structural similarity (SSIM)
+        double ssimScore = compareFacesSSIM(face1, face2);
+        
+        // Method 3: Feature-based comparison (ORB/SIFT)
+        double featureScore = compareFacesFeatures(face1, face2);
+        
+        // Method 4: Deep learning embedding (if available)
+        double embeddingScore = compareFacesEmbeddings(face1, face2);
+        
+        // Combine scores with weights
+        double finalScore = (histScore * 0.3) + (ssimScore * 0.3) + 
+                           (featureScore * 0.2) + (embeddingScore * 0.2);
+        
+        return std::min(1.0, std::max(0.0, finalScore));
+        
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Face comparison failed: " << e.what() << std::endl;
+        return 0.0;
+    }
+}
+
+double FaceDetector::compareFaces(const FaceDetectionResult& face1, const FaceDetectionResult& face2) {
+    if (face1.faceImage.empty() && face2.faceImage.empty()) {
+        return 0.0;
+    }
+    
+    // Prefer aligned faces if available
+    cv::Mat img1 = face1.alignedFace.empty() ? face1.faceImage : face1.alignedFace;
+    cv::Mat img2 = face2.alignedFace.empty() ? face2.faceImage : face2.alignedFace;
+    
+    return compareFaces(img1, img2);
+}
+
+std::vector<std::pair<double, cv::Rect>> FaceDetector::findSimilarFaces(const cv::Mat& probeFace, const cv::Mat& image) {
+    std::vector<std::pair<double, cv::Rect>> results;
+    
+    if (probeFace.empty() || image.empty()) {
+        return results;
+    }
+    
+    // Detect all faces in the image
+    auto faces = detectFaces(image);
+    
+    for (const auto& face : faces) {
+        if (face.faceImage.empty()) continue;
+        
+        double similarity = compareFaces(probeFace, face.faceImage);
+        results.push_back({similarity, face.boundingBox});
+    }
+    
+    // Sort by similarity score (descending)
+    std::sort(results.begin(), results.end(),
+        [](const std::pair<double, cv::Rect>& a, const std::pair<double, cv::Rect>& b) {
+            return a.first > b.first;
+        });
+    
+    return results;
+}
+
+std::vector<std::pair<double, std::string>> FaceDetector::findSimilarFacesInFolder(const cv::Mat& probeFace, const std::string& folderPath) {
+    std::vector<std::pair<double, std::string>> results;
+    
+    if (probeFace.empty()) {
+        return results;
+    }
+    
+    try {
+        for (const auto& entry : std::filesystem::directory_iterator(folderPath)) {
+            if (!entry.is_regular_file()) continue;
+            
+            std::string filePath = entry.path().string();
+            if (!ImageUtils::isValidImage(filePath)) continue;
+            
+            // Detect faces in the current image
+            auto faces = detectFaces(filePath);
+            
+            double maxSimilarity = 0.0;
+            for (const auto& face : faces) {
+                if (face.faceImage.empty()) continue;
+                
+                double similarity = compareFaces(probeFace, face.faceImage);
+                maxSimilarity = std::max(maxSimilarity, similarity);
+            }
+            
+            if (maxSimilarity > 0.0) {
+                results.push_back({maxSimilarity, filePath});
+            }
+        }
+        
+        // Sort by similarity score (descending)
+        std::sort(results.begin(), results.end(),
+            [](const std::pair<double, std::string>& a, const std::pair<double, std::string>& b) {
+                return a.first > b.first;
+            });
+            
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Folder processing failed: " << e.what() << std::endl;
+    }
+    
+    return results;
+}
+
+// ============================================================================
+// FACE COMPARISON METHODS
+// ============================================================================
+
+double FaceDetector::compareFacesHistogram(const cv::Mat& face1, const cv::Mat& face2) {
+    // Resize faces to same size for consistent comparison
+    cv::Mat resized1, resized2;
+    cv::Size targetSize(100, 100);
+    
+    cv::resize(face1, resized1, targetSize);
+    cv::resize(face2, resized2, targetSize);
+    
+    // Convert to HSV color space for better color comparison
+    cv::Mat hsv1, hsv2;
+    cv::cvtColor(resized1, hsv1, cv::COLOR_BGR2HSV);
+    cv::cvtColor(resized2, hsv2, cv::COLOR_BGR2HSV);
+    
+    // Calculate histograms
+    int h_bins = 50, s_bins = 60;
+    int histSize[] = {h_bins, s_bins};
+    float h_ranges[] = {0, 180};
+    float s_ranges[] = {0, 256};
+    const float* ranges[] = {h_ranges, s_ranges};
+    int channels[] = {0, 1};
+    
+    cv::Mat hist1, hist2;
+    cv::calcHist(&hsv1, 1, channels, cv::Mat(), hist1, 2, histSize, ranges, true, false);
+    cv::calcHist(&hsv2, 1, channels, cv::Mat(), hist2, 2, histSize, ranges, true, false);
+    
+    // Normalize histograms
+    cv::normalize(hist1, hist1, 0, 1, cv::NORM_MINMAX, -1, cv::Mat());
+    cv::normalize(hist2, hist2, 0, 1, cv::NORM_MINMAX, -1, cv::Mat());
+    
+    // Compare histograms using correlation (returns 1 for perfect match)
+    double correlation = cv::compareHist(hist1, hist2, cv::HISTCMP_CORREL);
+    
+    // Convert to 0-1 scale where 1 is perfect match
+    return (correlation + 1.0) / 2.0;
+}
+
+double FaceDetector::compareFacesSSIM(const cv::Mat& face1, const cv::Mat& face2) {
+    // Resize faces to same size
+    cv::Mat resized1, resized2;
+    cv::Size targetSize(100, 100);
+    
+    cv::resize(face1, resized1, targetSize);
+    cv::resize(face2, resized2, targetSize);
+    
+    // Convert to grayscale
+    cv::Mat gray1, gray2;
+    cv::cvtColor(resized1, gray1, cv::COLOR_BGR2GRAY);
+    cv::cvtColor(resized2, gray2, cv::COLOR_BGR2GRAY);
+    
+    // Calculate SSIM (Structural Similarity Index)
+    const double C1 = 6.5025, C2 = 58.5225;
+    
+    cv::Mat I1, I2;
+    gray1.convertTo(I1, CV_32F);
+    gray2.convertTo(I2, CV_32F);
+    
+    cv::Mat I1_2 = I1.mul(I1);
+    cv::Mat I2_2 = I2.mul(I2);
+    cv::Mat I1_I2 = I1.mul(I2);
+    
+    cv::Mat mu1, mu2;
+    cv::GaussianBlur(I1, mu1, cv::Size(11, 11), 1.5);
+    cv::GaussianBlur(I2, mu2, cv::Size(11, 11), 1.5);
+    
+    cv::Mat mu1_2 = mu1.mul(mu1);
+    cv::Mat mu2_2 = mu2.mul(mu2);
+    cv::Mat mu1_mu2 = mu1.mul(mu2);
+    
+    cv::Mat sigma1_2, sigma2_2, sigma12;
+    cv::GaussianBlur(I1_2, sigma1_2, cv::Size(11, 11), 1.5);
+    sigma1_2 -= mu1_2;
+    
+    cv::GaussianBlur(I2_2, sigma2_2, cv::Size(11, 11), 1.5);
+    sigma2_2 -= mu2_2;
+    
+    cv::GaussianBlur(I1_I2, sigma12, cv::Size(11, 11), 1.5);
+    sigma12 -= mu1_mu2;
+    
+    cv::Mat t1, t2, t3;
+    t1 = 2 * mu1_mu2 + C1;
+    t2 = 2 * sigma12 + C2;
+    t3 = t1.mul(t2);
+    
+    t1 = mu1_2 + mu2_2 + C1;
+    t2 = sigma1_2 + sigma2_2 + C2;
+    t1 = t1.mul(t2);
+    
+    cv::Mat ssim_map;
+    cv::divide(t3, t1, ssim_map);
+    
+    cv::Scalar mean_ssim = cv::mean(ssim_map);
+    return mean_ssim[0];
+}
+
+double FaceDetector::compareFacesFeatures(const cv::Mat& face1, const cv::Mat& face2) {
+    // Resize faces to same size
+    cv::Mat resized1, resized2;
+    cv::Size targetSize(200, 200);
+    
+    cv::resize(face1, resized1, targetSize);
+    cv::resize(face2, resized2, targetSize);
+    
+    // Convert to grayscale
+    cv::Mat gray1, gray2;
+    cv::cvtColor(resized1, gray1, cv::COLOR_BGR2GRAY);
+    cv::cvtColor(resized2, gray2, cv::COLOR_BGR2GRAY);
+    
+    // Use ORB feature detector
+    auto orb = cv::ORB::create(500);
+    
+    std::vector<cv::KeyPoint> keypoints1, keypoints2;
+    cv::Mat descriptors1, descriptors2;
+    
+    orb->detectAndCompute(gray1, cv::noArray(), keypoints1, descriptors1);
+    orb->detectAndCompute(gray2, cv::noArray(), keypoints2, descriptors2);
+    
+    if (descriptors1.empty() || descriptors2.empty()) {
+        return 0.0;
+    }
+    
+    // Use BFMatcher with Hamming distance
+    cv::BFMatcher matcher(cv::NORM_HAMMING);
+    std::vector<std::vector<cv::DMatch>> knn_matches;
+    matcher.knnMatch(descriptors1, descriptors2, knn_matches, 2);
+    
+    // Apply ratio test
+    std::vector<cv::DMatch> good_matches;
+    for (size_t i = 0; i < knn_matches.size(); i++) {
+        if (knn_matches[i].size() < 2) continue;
+        
+        if (knn_matches[i][0].distance < 0.75 * knn_matches[i][1].distance) {
+            good_matches.push_back(knn_matches[i][0]);
+        }
+    }
+    
+    // Calculate matching score
+    double match_ratio = static_cast<double>(good_matches.size()) / 
+                        std::min(keypoints1.size(), keypoints2.size());
+    
+    return std::min(1.0, match_ratio);
+}
+
+double FaceDetector::compareFacesEmbeddings(const cv::Mat& face1, const cv::Mat& face2) {
+    // This method would use a pre-trained deep learning model
+    // For now, we'll use a combination of other methods
+    
+    // Simple implementation using LBP features
+    cv::Mat gray1, gray2;
+    cv::cvtColor(face1, gray1, cv::COLOR_BGR2GRAY);
+    cv::cvtColor(face2, gray2, cv::COLOR_BGR2GRAY);
+    
+    // Resize for consistency
+    cv::resize(gray1, gray1, cv::Size(100, 100));
+    cv::resize(gray2, gray2, cv::Size(100, 100));
+    
+    // Calculate LBP features
+    cv::Mat lbp1 = calculateLBP(gray1);
+    cv::Mat lbp2 = calculateLBP(gray2);
+    
+    // Compare LBP histograms
+    cv::Mat hist1, hist2;
+    int histSize = 256;
+    float range[] = {0, 256};
+    const float* histRange = {range};
+    
+    cv::calcHist(&lbp1, 1, 0, cv::Mat(), hist1, 1, &histSize, &histRange);
+    cv::calcHist(&lbp2, 1, 0, cv::Mat(), hist2, 1, &histSize, &histRange);
+    
+    cv::normalize(hist1, hist1, 0, 1, cv::NORM_MINMAX, -1, cv::Mat());
+    cv::normalize(hist2, hist2, 0, 1, cv::NORM_MINMAX, -1, cv::Mat());
+    
+    double correlation = cv::compareHist(hist1, hist2, cv::HISTCMP_CORREL);
+    return (correlation + 1.0) / 2.0;
+}
+
+cv::Mat FaceDetector::calculateLBP(const cv::Mat& src) {
+    cv::Mat dst = cv::Mat::zeros(src.rows-2, src.cols-2, CV_8UC1);
+    
+    for (int i = 1; i < src.rows-1; i++) {
+        for (int j = 1; j < src.cols-1; j++) {
+            uchar center = src.at<uchar>(i,j);
+            unsigned char code = 0;
+            code |= (src.at<uchar>(i-1,j-1) > center) << 7;
+            code |= (src.at<uchar>(i-1,j) > center) << 6;
+            code |= (src.at<uchar>(i-1,j+1) > center) << 5;
+            code |= (src.at<uchar>(i,j+1) > center) << 4;
+            code |= (src.at<uchar>(i+1,j+1) > center) << 3;
+            code |= (src.at<uchar>(i+1,j) > center) << 2;
+            code |= (src.at<uchar>(i+1,j-1) > center) << 1;
+            code |= (src.at<uchar>(i,j-1) > center) << 0;
+            dst.at<uchar>(i-1,j-1) = code;
+        }
+    }
+    return dst;
+}
+
+
 
 // ============================================================================
 // BATCH PROCESSING
@@ -825,18 +1145,18 @@ cv::Mat FaceDetector::alignFaceEyesCenter(
 // FACE EXTRACTION & PROCESSING
 // ============================================================================
 
-cv::Mat FaceDetector::extractFace(
-    const cv::Mat& image,
-    const cv::Rect& faceRect,
-    bool addPadding) {
+// cv::Mat FaceDetector::extractFace(
+//     const cv::Mat& image,
+//     const cv::Rect& faceRect,
+//     bool addPadding) {
     
-    return ImageUtils::extractFace(
-        image,
-        faceRect,
-        addPadding,
-        config_.facePadding
-    );
-}
+//     return ImageUtils::extractFace(
+//         image,
+//         faceRect,
+//         addPadding,
+//         config_.facePadding
+//     );
+// }
 
 std::vector<cv::Mat> FaceDetector::extractAllFaces(const cv::Mat& image) {
     auto results = detectFaces(image);
@@ -1135,6 +1455,54 @@ void FaceDetector::preprocessImage(const cv::Mat& input, cv::Mat& output) {
         config_.detectionMethod == DetectionMethod::LBP_CASCADE) {
         output = ImageUtils::equalizeHistogram(output);
     }
+}
+
+cv::Mat FaceDetector::extractFace(
+    const cv::Mat& image,
+    const cv::Rect& faceRect,
+    bool addPadding) {
+    
+    if (image.empty() || faceRect.area() == 0) {
+        return cv::Mat();
+    }
+
+    // تأكد أن الـ faceRect داخل حدود الصورة أصلاً
+    cv::Rect safeFaceRect = getSafeFaceRect(faceRect, image.size());
+    if (safeFaceRect.area() == 0) {
+        return cv::Mat();
+    }
+
+    cv::Rect expandedRect = safeFaceRect;
+    
+    if (addPadding) {
+        int padX = static_cast<int>(safeFaceRect.width * config_.facePadding);
+        int padY = static_cast<int>(safeFaceRect.height * config_.facePadding);
+        
+        expandedRect.x -= padX;
+        expandedRect.y -= padY;
+        expandedRect.width += 2 * padX;
+        expandedRect.height += 2 * padY;
+        
+        // تأكد أن المنطقة الموسعة داخل الحدود
+        expandedRect = getSafeFaceRect(expandedRect, image.size());
+    }
+
+    // إذا المنطقة أصبحت فارغة، ارجع صورة فارغة
+    if (expandedRect.width <= 0 || expandedRect.height <= 0) {
+        return cv::Mat();
+    }
+
+    return image(expandedRect).clone();
+}
+
+// أضف هذه الدالة المساعدة
+cv::Rect FaceDetector::getSafeFaceRect(const cv::Rect& rect, const cv::Size& imageSize) {
+    int x = std::max(0, rect.x);
+    int y = std::max(0, rect.y);
+    int width = std::min(rect.width, imageSize.width - x);
+    int height = std::min(rect.height, imageSize.height - y);
+    
+    return (width > 0 && height > 0) ? cv::Rect(x, y, width, height) : cv::Rect(0, 0, 0, 0);
 }
 
 cv::Rect FaceDetector::expandFaceRect(
