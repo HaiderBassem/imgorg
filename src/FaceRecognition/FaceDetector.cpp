@@ -1466,7 +1466,7 @@ cv::Mat FaceDetector::extractFace(
         return cv::Mat();
     }
 
-    // تأكد أن الـ faceRect داخل حدود الصورة أصلاً
+
     cv::Rect safeFaceRect = getSafeFaceRect(faceRect, image.size());
     if (safeFaceRect.area() == 0) {
         return cv::Mat();
@@ -1483,11 +1483,11 @@ cv::Mat FaceDetector::extractFace(
         expandedRect.width += 2 * padX;
         expandedRect.height += 2 * padY;
         
-        // تأكد أن المنطقة الموسعة داخل الحدود
+ 
         expandedRect = getSafeFaceRect(expandedRect, image.size());
     }
 
-    // إذا المنطقة أصبحت فارغة، ارجع صورة فارغة
+  
     if (expandedRect.width <= 0 || expandedRect.height <= 0) {
         return cv::Mat();
     }
@@ -1495,7 +1495,7 @@ cv::Mat FaceDetector::extractFace(
     return image(expandedRect).clone();
 }
 
-// أضف هذه الدالة المساعدة
+
 cv::Rect FaceDetector::getSafeFaceRect(const cv::Rect& rect, const cv::Size& imageSize) {
     int x = std::max(0, rect.x);
     int y = std::max(0, rect.y);

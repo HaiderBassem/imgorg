@@ -869,7 +869,8 @@ std::vector<cv::Point2f> ImageUtils::detectFacialLandmarksYuNet(const cv::Mat& f
         cv::Mat faces;
         detector->detect(faceImage, faces);
 
-        if (faces.rows > 0) {
+        if (faces.rows > 0)
+        {
             // YuNet returns: x, y, w, h, x_re, y_re, x_le, y_le, x_nt, y_nt, x_rcm, y_rcm, x_lcm, y_lcm
             // Where: re=right eye, le=left eye, nt=nose tip, rcm=right corner mouth, lcm=left corner mouth
             
@@ -890,10 +891,11 @@ std::vector<cv::Point2f> ImageUtils::detectFacialLandmarksYuNet(const cv::Mat& f
     return std::vector<cv::Point2f>();
 }
 
-std::vector<cv::Point2f> ImageUtils::generateLandmarksFromKeyPoints(
-    const std::vector<cv::Point2f>& key_points, const cv::Size& image_size) {
+std::vector<cv::Point2f> ImageUtils::generateLandmarksFromKeyPoints(const std::vector<cv::Point2f>& key_points, const cv::Size& image_size)
+{
     
-    if (key_points.size() < 5) {
+    if (key_points.size() < 5)
+    {
         return std::vector<cv::Point2f>();
     }
 
