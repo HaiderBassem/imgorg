@@ -8,6 +8,8 @@
 #include <dlib/image_processing/frontal_face_detector.h>
 #include <dlib/image_processing.h>
 
+// using namespace ImageUtils;
+
 // ============================================================================
 // IMAGE LOADING & VALIDATION
 // ============================================================================
@@ -70,8 +72,8 @@ bool ImageUtils::isValidImage(const std::string &filePath, bool performDeepCheck
 
     return true;
 }
-
-bool ImageUtils::performDeepImageValidation(const cv::Mat& image, const std::string& filePath) {
+bool ImageUtils::performDeepImageValidation(const cv::Mat& image, const std::string& filePath)
+{
     try {
         // Check for valid data pointer
         if (image.data == nullptr) {
@@ -79,7 +81,7 @@ bool ImageUtils::performDeepImageValidation(const cv::Mat& image, const std::str
         }
 
         // Check for reasonable dimensions (not too small, not absurdly large)
-        if (image.rows < 10 || image.cols < 10 || 
+        if (image.rows < 10 || image.cols < 10 ||
             image.rows > 50000 || image.cols > 50000) {
             return false;
         }
@@ -92,29 +94,66 @@ bool ImageUtils::performDeepImageValidation(const cv::Mat& image, const std::str
 
         // Check for valid depth
         int depth = image.depth();
-        if (depth != CV_8U && depth != CV_8S && depth != CV_16U && 
-            depth != CV_16S && depth != CV_32S && depth != CV_32F && 
+        if (depth != CV_8U && depth != CV_8S && depth != CV_16U &&
+            depth != CV_16S && depth != CV_32S && depth != CV_32F &&
             depth != CV_64F) {
             return false;
         }
 
-        // Verify data continuity and check for NaN/Inf values
+        // Verify data continuity and check for NaN/Inf or all-zero pixels
         if (image.isContinuous()) {
-            const uchar* ptr = image.ptr<uchar>(0);
             size_t totalBytes = image.total() * image.elemSize();
-            
-            // Sample check (checking every pixel could be slow)
-            for (size_t i = 0; i < std::min(totalBytes, size_t(1000)); i += 10) {
-                if (ptr[i] > 255) { // Basic sanity check for 8-bit images
-                    return false;
+
+            switch(depth) {
+            case CV_8U:
+            case CV_8S: {
+                const uchar* ptr = image.ptr<uchar>(0);
+                for (size_t i = 0; i < std::min(totalBytes, size_t(1000)); i += 10)
+                        if (ptr[i] != 0) break;
+                break;
+            }
+            case CV_16U: {
+                const uint16_t* ptr = image.ptr<uint16_t>(0);
+                for (size_t i = 0; i < std::min(totalBytes/2, size_t(1000)); i += 10) {
+                    if (ptr[i] != 0) break;
                 }
+                break;
+            }
+            case CV_16S: {
+                const int16_t* ptr = image.ptr<int16_t>(0);
+                for (size_t i = 0; i < std::min(totalBytes/2, size_t(1000)); i += 10) {
+                    if (ptr[i] != 0) break;
+                }
+                break;
+            }
+            case CV_32S: {
+                const int32_t* ptr = image.ptr<int32_t>(0);
+                for (size_t i = 0; i < std::min(totalBytes/4, size_t(1000)); i += 10) {
+                    if (ptr[i] != 0) break;
+                }
+                break;
+            }
+            case CV_32F: {
+                const float* ptr = image.ptr<float>(0);
+                for (size_t i = 0; i < std::min(totalBytes/4, size_t(1000)); i += 10) {
+                    if (!std::isfinite(ptr[i])) return false; // check NaN/Inf
+                }
+                break;
+            }
+            case CV_64F: {
+                const double* ptr = image.ptr<double>(0);
+                for (size_t i = 0; i < std::min(totalBytes/8, size_t(1000)); i += 10) {
+                    if (!std::isfinite(ptr[i])) return false; // check NaN/Inf
+                }
+                break;
+            }
             }
         }
 
         // Calculate basic statistics to ensure image has meaningful data
         cv::Scalar mean, stddev;
         cv::meanStdDev(image, mean, stddev);
-        
+
         // Check if image has some variance (not completely uniform)
         bool hasVariance = false;
         for (int i = 0; i < image.channels(); i++) {
@@ -126,8 +165,8 @@ bool ImageUtils::performDeepImageValidation(const cv::Mat& image, const std::str
 
         return hasVariance;
 
-    } 
-    catch (const std::exception& e) 
+    }
+    catch (const std::exception& e)
     {
         std::cerr << "[ERROR] Exception during validation: " << e.what() << std::endl;
         return false;
@@ -137,9 +176,8 @@ bool ImageUtils::performDeepImageValidation(const cv::Mat& image, const std::str
         std::cerr << "[ERROR] Unknown exception during validation." << std::endl;
         return false;
     }
-    
-    return false;
 }
+
 
 bool ImageUtils::isImageCompletelyBlack(const cv::Mat& image) 
 {

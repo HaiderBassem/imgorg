@@ -18,7 +18,9 @@
 #include <string>
 
 
-// CONFIGURATION
+using namespace ImageUtils;
+
+
 
 struct Config {
     std::string probeImagePath;
@@ -521,7 +523,7 @@ int main(int argc, char* argv[])
     for (const auto& imagePath : sourceImages) 
     {
         // Quick validation
-        if (!ImageUtils::isValidImage(imagePath, false)) 
+        if (!ImageUtils::isValidImage(imagePath))
         {
             stats.skippedImages++;
             stats.processedImages++;
