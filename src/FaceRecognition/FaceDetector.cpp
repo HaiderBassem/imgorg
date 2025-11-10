@@ -328,7 +328,7 @@ std::vector<FaceDetectionResult> FaceDetector::detectFaces(const cv::Mat& image)
 }
 
 std::vector<FaceDetectionResult> FaceDetector::detectFaces(const std::string& imagePath) {
-    cv::Mat image = ImageUtils::loadImage(imagePath);
+    cv::Mat image = ImageUtils::loadImage(imagePath, cv::IMREAD_COLOR);
     
     if (image.empty()) {
         lastError_ = "Failed to load image: " + imagePath;

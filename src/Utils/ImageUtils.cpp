@@ -1,4 +1,5 @@
 #include "ImageUtils.h"
+#include "../FileSystem/PathUtils.h"
 #include <iostream>
 #include <fstream>
 #include <cmath>
@@ -13,11 +14,12 @@
 
 cv::Mat ImageUtils::loadImage(const std::string &filePath, int flags) 
 {
-    if (filePath.empty()) {
-        std::cerr << "[ERROR] Empty file path provided" << std::endl;
+    if (filePath.empty() || !PathUtils::isImageExtension(filePath)) 
+    {
+        std::cerr << "[ERROR] Empty file path provided or Not Image extention" << std::endl;
         return cv::Mat();
     }
-
+    
     cv::Mat image = cv::imread(filePath, flags);
     
     if (image.empty()) {
@@ -34,21 +36,21 @@ cv::Mat ImageUtils::loadImage(const std::string &filePath, int flags)
     return image;
 }
 
-cv::Mat ImageUtils::loadImage(const std::string &filePath) {
+cv::Mat ImageUtils::loadImage(const std::string &filePath) 
+{
     return loadImage(filePath, cv::IMREAD_COLOR);
 }
 
-bool ImageUtils::isValidImage(const std::string &filePath) {
+bool ImageUtils::isValidImage(const std::string &filePath) 
+{
     return isValidImage(filePath, false);
 }
 
 bool ImageUtils::isValidImage(const std::string &filePath, bool performDeepCheck) {
     // Check if file exists
-    std::ifstream file(filePath);
-    if (!file.good()) {
+
+    if(!PathUtils::fileExists(filePath) || !std::filesystem::is_regular_file(filePath))
         return false;
-    }
-    file.close();
 
     // Quick validation with OpenCV
     cv::Mat image = cv::imread(filePath, cv::IMREAD_UNCHANGED);
@@ -124,16 +126,23 @@ bool ImageUtils::performDeepImageValidation(const cv::Mat& image, const std::str
 
         return hasVariance;
 
-    } catch (const cv::Exception& e) {
-        std::cerr << "[ERROR] OpenCV exception during validation: " << e.what() << std::endl;
-        return false;
-    } catch (const std::exception& e) {
+    } 
+    catch (const std::exception& e) 
+    {
         std::cerr << "[ERROR] Exception during validation: " << e.what() << std::endl;
         return false;
     }
+    catch(...)
+    {
+        std::cerr << "[ERROR] Unknown exception during validation." << std::endl;
+        return false;
+    }
+    
+    return false;
 }
 
-bool ImageUtils::isImageCompletelyBlack(const cv::Mat& image) {
+bool ImageUtils::isImageCompletelyBlack(const cv::Mat& image) 
+{
     if (image.empty()) {
         return true;
     }
@@ -157,7 +166,8 @@ bool ImageUtils::saveImage(const cv::Mat& image, const std::string& filePath) {
 }
 
 bool ImageUtils::saveImageWithQuality(const cv::Mat& image, const std::string& filePath, int quality) {
-    if (image.empty()) {
+    if (image.empty()) 
+    {
         std::cerr << "[ERROR] Cannot save empty image" << std::endl;
         return false;
     }
@@ -166,8 +176,9 @@ bool ImageUtils::saveImageWithQuality(const cv::Mat& image, const std::string& f
         std::vector<int> compression_params;
         
         // Determine compression based on file extension
-        std::string extension = filePath.substr(filePath.find_last_of(".") + 1);
-        std::transform(extension.begin(), extension.end(), extension.begin(), ::tolower);
+        // std::string extension = filePath.substr(filePath.find_last_of(".") + 1);
+        // std::transform(extension.begin(), extension.end(), extension.begin(), ::tolower);
+        std::string extension = PathUtils::getFileExtension(filePath);
 
         if (extension == "jpg" || extension == "jpeg") {
             compression_params.push_back(cv::IMWRITE_JPEG_QUALITY);
@@ -189,8 +200,15 @@ bool ImageUtils::saveImageWithQuality(const cv::Mat& image, const std::string& f
         
         return success;
 
-    } catch (const cv::Exception& e) {
+    } 
+    catch (const std::exception& e) 
+    {
         std::cerr << "[ERROR] OpenCV exception while saving: " << e.what() << std::endl;
+        return false;
+    }
+    catch(...)
+    {
+        std::cerr << "[ERROR] Unknown exception during validation." << std::endl;
         return false;
     }
 }
@@ -218,8 +236,10 @@ cv::Mat ImageUtils::resizeImage(const cv::Mat &image, const cv::Size &newSize) {
     return resized;
 }
 
-cv::Mat ImageUtils::resizeImageByWidth(const cv::Mat &image, int newWidth) {
-    if (image.empty() || newWidth <= 0) {
+cv::Mat ImageUtils::resizeImageByWidth(const cv::Mat &image, int newWidth) 
+{
+    if (image.empty() || newWidth <= 0) 
+    {
         return cv::Mat();
     }
 
@@ -240,7 +260,8 @@ cv::Mat ImageUtils::resizeImageByHeight(const cv::Mat &image, int newHeight) {
     return resizeImage(image, cv::Size(newWidth, newHeight));
 }
 
-cv::Mat ImageUtils::cropImage(const cv::Mat &image, const cv::Rect &roi) {
+cv::Mat ImageUtils::cropImage(const cv::Mat &image, const cv::Rect &roi) 
+{
     if (image.empty()) {
         std::cerr << "[ERROR] Cannot crop empty image" << std::endl;
         return cv::Mat();
@@ -258,7 +279,8 @@ cv::Mat ImageUtils::cropImage(const cv::Mat &image, const cv::Rect &roi) {
 }
 
 
-cv::Mat ImageUtils::cropImageSafe(const cv::Mat &image, const cv::Rect &roi, cv::Scalar fillColor) {
+cv::Mat ImageUtils::cropImageSafe(const cv::Mat &image, const cv::Rect &roi, cv::Scalar fillColor) 
+{
     if (image.empty()) {
         return cv::Mat();
     }
@@ -271,14 +293,17 @@ cv::Mat ImageUtils::cropImageSafe(const cv::Mat &image, const cv::Rect &roi, cv:
     }
 
 
-    if (safeROI != roi) {
+    if (safeROI != roi) 
+    {
         return addPaddingToROI(image(safeROI).clone(), roi, safeROI, fillColor);
     }
 
     return image(safeROI).clone();
 }
-cv::Rect ImageUtils::getSafeROI(const cv::Rect& roi, const cv::Size& imageSize) {
-    if (roi.width <= 0 || roi.height <= 0) {
+cv::Rect ImageUtils::getSafeROI(const cv::Rect& roi, const cv::Size& imageSize) 
+{
+    if (roi.width <= 0 || roi.height <= 0) 
+    {
         return cv::Rect(0, 0, 0, 0);
     }
     
@@ -312,8 +337,10 @@ cv::Mat ImageUtils::addPaddingToROI(const cv::Mat& cropped, const cv::Rect& orig
 // COLOR & IMAGE PROCESSING
 // ============================================================================
 
-cv::Mat ImageUtils::convertToGray(const cv::Mat &image) {
-    if (image.empty()) {
+cv::Mat ImageUtils::convertToGray(const cv::Mat &image) 
+{
+    if (image.empty()) 
+    {
         return cv::Mat();
     }
 
@@ -333,7 +360,8 @@ cv::Mat ImageUtils::convertToGray(const cv::Mat &image) {
     return gray;
 }
 
-cv::Mat ImageUtils::equalizeHistogram(const cv::Mat &image) {
+cv::Mat ImageUtils::equalizeHistogram(const cv::Mat &image) 
+{
     if (image.empty()) {
         return cv::Mat();
     }
@@ -361,7 +389,8 @@ cv::Mat ImageUtils::equalizeHistogram(const cv::Mat &image) {
     return result;
 }
 
-cv::Mat ImageUtils::normalizeImage(const cv::Mat &image) {
+cv::Mat ImageUtils::normalizeImage(const cv::Mat &image) 
+{
     if (image.empty()) {
         return cv::Mat();
     }
@@ -373,7 +402,8 @@ cv::Mat ImageUtils::normalizeImage(const cv::Mat &image) {
 }
 
 cv::Mat ImageUtils::adjustBrightnessContrast(const cv::Mat &image, double alpha, double beta) {
-    if (image.empty()) {
+    if (image.empty()) 
+    {
         return cv::Mat();
     }
 
@@ -390,7 +420,8 @@ cv::Mat ImageUtils::adjustBrightnessContrast(const cv::Mat &image, double alpha,
 // IMAGE TRANSFORMATION
 // ============================================================================
 
-cv::Mat ImageUtils::rotateImage(const cv::Mat& image, double angle) {
+cv::Mat ImageUtils::rotateImage(const cv::Mat& image, double angle) 
+{
     if (image.empty()) {
         return cv::Mat();
     }
@@ -417,7 +448,8 @@ cv::Mat ImageUtils::rotateImage(const cv::Mat& image, double angle) {
     return rotated;
 }
 
-cv::Mat ImageUtils::flipHorizontal(const cv::Mat& image) {
+cv::Mat ImageUtils::flipHorizontal(const cv::Mat& image) 
+{
     if (image.empty()) {
         return cv::Mat();
     }
@@ -441,7 +473,10 @@ cv::Mat ImageUtils::flipVertically(const cv::Mat &image) {
 // IMAGE INFORMATION & ANALYSIS
 // ============================================================================
 
-cv::Size ImageUtils::getImageSize(const std::string& filePath) {
+cv::Size ImageUtils::getImageSize(const std::string& filePath) 
+{
+    if(!PathUtils::fileExists(filePath))
+        return cv::Size(0, 0);
     cv::Mat image = cv::imread(filePath, cv::IMREAD_UNCHANGED);
     if (image.empty()) {
         return cv::Size(0, 0);
@@ -449,15 +484,18 @@ cv::Size ImageUtils::getImageSize(const std::string& filePath) {
     return image.size();
 }
 
-cv::Size ImageUtils::getImageSize(const cv::Mat &image) {
+cv::Size ImageUtils::getImageSize(const cv::Mat &image) 
+{
     return image.empty() ? cv::Size(0, 0) : image.size();
 }
 
-int ImageUtils::getImageChannels(const cv::Mat &image) {
+int ImageUtils::getImageChannels(const cv::Mat &image) 
+{
     return image.empty() ? 0 : image.channels();
 }
 
-std::string ImageUtils::getImageInfo(const std::string &filePath) {
+std::string ImageUtils::getImageInfo(const std::string &filePath) 
+{
     cv::Mat image = cv::imread(filePath, cv::IMREAD_UNCHANGED);
     
     if (image.empty()) {
@@ -480,15 +518,18 @@ std::string ImageUtils::getImageInfo(const std::string &filePath) {
     return info.str();
 }
 
-double ImageUtils::calculateImageQuality(const cv::Mat &image) {
-    if (image.empty()) {
+double ImageUtils::calculateImageQuality(const cv::Mat &image) 
+{
+    if (image.empty()) 
+    {
         return 0.0;
     }
 
     cv::Mat gray;
     if (image.channels() == 3 || image.channels() == 4) {
         cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
-    } else {
+    } else 
+    {
         gray = image;
     }
 
@@ -506,7 +547,8 @@ double ImageUtils::calculateImageQuality(const cv::Mat &image) {
     return quality;
 }
 
-int ImageUtils::getOptimalInterpolation(const cv::Size& originalSize, const cv::Size& targetSize) {
+int ImageUtils::getOptimalInterpolation(const cv::Size& originalSize, const cv::Size& targetSize) 
+{
     // Use INTER_AREA for shrinking (best quality for downsampling)
     if (targetSize.width < originalSize.width || targetSize.height < originalSize.height) {
         return cv::INTER_AREA;
@@ -521,7 +563,8 @@ int ImageUtils::getOptimalInterpolation(const cv::Size& originalSize, const cv::
     }
 }
 
-std::string ImageUtils::getInterpolationName(int interpolation) {
+std::string ImageUtils::getInterpolationName(int interpolation) 
+{
     switch (interpolation) {
         case cv::INTER_NEAREST: return "INTER_NEAREST";
         case cv::INTER_LINEAR: return "INTER_LINEAR";
@@ -536,9 +579,10 @@ std::string ImageUtils::getInterpolationName(int interpolation) {
 // FACE PROCESSING
 // ============================================================================
 
-cv::Mat ImageUtils::extractFace(const cv::Mat &image, const cv::Rect &faceRect, 
-                                 bool addPadding, double paddingScale) {
-    if (image.empty() || faceRect.area() == 0) {
+cv::Mat ImageUtils::extractFace(const cv::Mat &image, const cv::Rect &faceRect, bool addPadding, double paddingScale) 
+{
+    if (image.empty() || faceRect.area() == 0) 
+    {
         return cv::Mat();
     }
 
@@ -554,11 +598,11 @@ cv::Mat ImageUtils::extractFace(const cv::Mat &image, const cv::Rect &faceRect,
         expandedRect.height += 2 * padY;
     }
 
-    // استخدم cropImageSafe بدل ما نعمل الحسابات يدوي
     return cropImageSafe(image, expandedRect, cv::Scalar(0, 0, 0));
 }
 
-std::vector<cv::Point2f> ImageUtils::detectFacialLandmarksHAAR(const cv::Mat& faceImage) {
+std::vector<cv::Point2f> ImageUtils::detectFacialLandmarksHAAR(const cv::Mat& faceImage) 
+{
     return detectLandmarksHAAR(faceImage);
 }
 
