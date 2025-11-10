@@ -1,5 +1,6 @@
 #include "ImageUtils.h"
 #include "../FileSystem/PathUtils.h"
+#include "../Utils/Logger.h"
 #include <iostream>
 #include <fstream>
 #include <cmath>
@@ -19,19 +20,29 @@ cv::Mat ImageUtils::loadImage(const std::string &filePath, int flags)
     if (filePath.empty() || !PathUtils::isImageExtension(filePath)) 
     {
         std::cerr << "[ERROR] Empty file path provided or Not Image extention" << std::endl;
+        #ifndef DEBUG_MODE
+        Logger::instance().error("Empty file path provided or Not Image extention");
+        #endif
         return cv::Mat();
+
     }
     
     cv::Mat image = cv::imread(filePath, flags);
     
     if (image.empty()) {
         std::cerr << "[ERROR] Failed to load image: " << filePath << std::endl;
+        #ifndef DEBUG_MODE
+        Logger::instance().error("Failed to load image:" + std::string(filePath));
+        #endif
         return cv::Mat();
     }
 
     // Validate image data integrity
     if (image.rows <= 0 || image.cols <= 0) {
         std::cerr << "[ERROR] Invalid image dimensions" << std::endl;
+        #ifndef DEBUG_MODE
+        Logger::instance().error("Invalid image dimensions");
+        #endif
         return cv::Mat();
     }
 
@@ -74,6 +85,7 @@ bool ImageUtils::isValidImage(const std::string &filePath, bool performDeepCheck
 }
 bool ImageUtils::performDeepImageValidation(const cv::Mat& image, const std::string& filePath)
 {
+    [[maybe_unused]] const std::string& unused = filePath;
     try {
         // Check for valid data pointer
         if (image.data == nullptr) {
@@ -169,11 +181,17 @@ bool ImageUtils::performDeepImageValidation(const cv::Mat& image, const std::str
     catch (const std::exception& e)
     {
         std::cerr << "[ERROR] Exception during validation: " << e.what() << std::endl;
+        #ifndef DEBUG_MODE
+        Logger::instance().error("Exception during validation:" + std::string(e.what()));
+        #endif
         return false;
     }
     catch(...)
     {
         std::cerr << "[ERROR] Unknown exception during validation." << std::endl;
+        #ifndef DEBUG_MODE
+        Logger::instance().error("Unknown exception during validation.");
+        #endif
         return false;
     }
 }
@@ -207,6 +225,9 @@ bool ImageUtils::saveImageWithQuality(const cv::Mat& image, const std::string& f
     if (image.empty()) 
     {
         std::cerr << "[ERROR] Cannot save empty image" << std::endl;
+        #ifndef DEBUG_MODE
+        Logger::instance().error("Cannot save empty image");
+        #endif
         return false;
     }
 
@@ -232,8 +253,12 @@ bool ImageUtils::saveImageWithQuality(const cv::Mat& image, const std::string& f
 
         bool success = cv::imwrite(filePath, image, compression_params);
         
-        if (!success) {
+        if (!success) 
+        {
             std::cerr << "[ERROR] Failed to save image to: " << filePath << std::endl;
+            #ifndef DEBUG_MODE
+            Logger::instance().error("Failed to save image to: " + std::string(filePath));
+            #endif
         }
         
         return success;
@@ -242,11 +267,17 @@ bool ImageUtils::saveImageWithQuality(const cv::Mat& image, const std::string& f
     catch (const std::exception& e) 
     {
         std::cerr << "[ERROR] OpenCV exception while saving: " << e.what() << std::endl;
+        #ifndef DEBUG_MODE
+        Logger::instance().error("OpenCV exception while saving: " + std::string(e.what()));
+        #endif
         return false;
     }
     catch(...)
     {
         std::cerr << "[ERROR] Unknown exception during validation." << std::endl;
+        #ifndef DEBUG_MODE
+        Logger::instance().error("Unknown exception during validation.");
+        #endif
         return false;
     }
 }
@@ -255,19 +286,30 @@ bool ImageUtils::saveImageWithQuality(const cv::Mat& image, const std::string& f
 // IMAGE TRANSFORMATION & MANIPULATION
 // ============================================================================
 
-cv::Mat ImageUtils::resizeImage(const cv::Mat &image, const cv::Size &newSize) {
-    if (image.empty() || newSize.width <= 0 || newSize.height <= 0) {
+cv::Mat ImageUtils::resizeImage(const cv::Mat &image, const cv::Size &newSize) 
+{
+    if (image.empty() || newSize.width <= 0 || newSize.height <= 0) 
+    {
         std::cerr << "[ERROR] Invalid image or size for resizing" << std::endl;
+        #ifndef DEBUG_MODE
+        Logger::instance().error("Invalid image or size for resizing");
+        #endif
         return cv::Mat();
     }
 
     cv::Mat resized;
     int interpolation = getOptimalInterpolation(image.size(), newSize);
     
-    try {
+    try 
+    {
         cv::resize(image, resized, newSize, 0, 0, interpolation);
-    } catch (const cv::Exception& e) {
+    } 
+    catch (const cv::Exception& e) 
+    {
         std::cerr << "[ERROR] Resize failed: " << e.what() << std::endl;
+        #ifndef DEBUG_MODE
+        Logger::instance().error("Resize failed: " + std::string(e.what()));
+        #endif
         return cv::Mat();
     }
 
@@ -302,14 +344,21 @@ cv::Mat ImageUtils::cropImage(const cv::Mat &image, const cv::Rect &roi)
 {
     if (image.empty()) {
         std::cerr << "[ERROR] Cannot crop empty image" << std::endl;
+        #ifndef DEBUG_MODE
+        Logger::instance().error("Cannot crop empty image");
+        #endif
         return cv::Mat();
     }
 
     // Validate ROI is within image bounds
     if (roi.x < 0 || roi.y < 0 || 
         roi.x + roi.width > image.cols || 
-        roi.y + roi.height > image.rows) {
+        roi.y + roi.height > image.rows) 
+    {
         std::cerr << "[ERROR] ROI out of image bounds" << std::endl;
+        #ifndef DEBUG_MODE
+        Logger::instance().error("ROI out of image bounds");
+        #endif
         return cv::Mat();
     }
 
@@ -319,31 +368,28 @@ cv::Mat ImageUtils::cropImage(const cv::Mat &image, const cv::Rect &roi)
 
 cv::Mat ImageUtils::cropImageSafe(const cv::Mat &image, const cv::Rect &roi, cv::Scalar fillColor) 
 {
-    if (image.empty()) {
+    if (image.empty()) 
         return cv::Mat();
-    }
 
 
     cv::Rect safeROI = getSafeROI(roi, image.size());
 
-    if (safeROI.width <= 0 || safeROI.height <= 0) {
+    if (safeROI.width <= 0 || safeROI.height <= 0) 
         return cv::Mat();
-    }
+    
 
 
     if (safeROI != roi) 
-    {
         return addPaddingToROI(image(safeROI).clone(), roi, safeROI, fillColor);
-    }
+    
 
     return image(safeROI).clone();
 }
 cv::Rect ImageUtils::getSafeROI(const cv::Rect& roi, const cv::Size& imageSize) 
 {
     if (roi.width <= 0 || roi.height <= 0) 
-    {
         return cv::Rect(0, 0, 0, 0);
-    }
+    
     
     int x = std::max(0, roi.x);
     int y = std::max(0, roi.y);
@@ -351,15 +397,15 @@ cv::Rect ImageUtils::getSafeROI(const cv::Rect& roi, const cv::Size& imageSize)
     int height = std::min(roi.height, imageSize.height - y);
     
     // checking 
-    if (width <= 0 || height <= 0) {
+    if (width <= 0 || height <= 0) 
         return cv::Rect(0, 0, 0, 0);
-    }
+    
     
     return cv::Rect(x, y, width, height);
 }
 
-cv::Mat ImageUtils::addPaddingToROI(const cv::Mat& cropped, const cv::Rect& originalROI, 
-                                     const cv::Rect& safeROI, cv::Scalar fillColor) {
+cv::Mat ImageUtils::addPaddingToROI(const cv::Mat& cropped, const cv::Rect& originalROI, const cv::Rect& safeROI, cv::Scalar fillColor) 
+{
     cv::Mat padded(originalROI.height, originalROI.width, cropped.type(), fillColor);
     
     int offsetX = safeROI.x - originalROI.x;
@@ -392,6 +438,9 @@ cv::Mat ImageUtils::convertToGray(const cv::Mat &image)
         cv::cvtColor(image, gray, cv::COLOR_BGRA2GRAY);
     } else {
         std::cerr << "[ERROR] Unsupported number of channels: " << image.channels() << std::endl;
+        #ifndef DEBUG_MODE
+        Logger::instance().error("Unsupported number of channels: " + std::to_string(image.channels()));
+        #endif
         return cv::Mat();
     }
 
@@ -400,15 +449,18 @@ cv::Mat ImageUtils::convertToGray(const cv::Mat &image)
 
 cv::Mat ImageUtils::equalizeHistogram(const cv::Mat &image) 
 {
-    if (image.empty()) {
+    if (image.empty()) 
         return cv::Mat();
-    }
+    
 
     cv::Mat result;
     
-    if (image.channels() == 1) {
+    if (image.channels() == 1) 
+    {
         cv::equalizeHist(image, result);
-    } else if (image.channels() == 3) {
+    } 
+    else if (image.channels() == 3) 
+    {
         // Convert to YCrCb and equalize Y channel only
         cv::Mat ycrcb;
         cv::cvtColor(image, ycrcb, cv::COLOR_BGR2YCrCb);
@@ -419,8 +471,13 @@ cv::Mat ImageUtils::equalizeHistogram(const cv::Mat &image)
         
         cv::merge(channels, ycrcb);
         cv::cvtColor(ycrcb, result, cv::COLOR_YCrCb2BGR);
-    } else {
+    } 
+    else 
+    {
         std::cerr << "[ERROR] Histogram equalization only supports 1 or 3 channel images" << std::endl;
+        #ifndef DEBUG_MODE
+        Logger::instance().error("Histogram equalization only supports 1 or 3 channel images");
+        #endif
         return image.clone();
     }
 
@@ -429,9 +486,9 @@ cv::Mat ImageUtils::equalizeHistogram(const cv::Mat &image)
 
 cv::Mat ImageUtils::normalizeImage(const cv::Mat &image) 
 {
-    if (image.empty()) {
+    if (image.empty()) 
         return cv::Mat();
-    }
+    
 
     cv::Mat normalized;
     cv::normalize(image, normalized, 0, 255, cv::NORM_MINMAX, CV_8U);
@@ -439,11 +496,11 @@ cv::Mat ImageUtils::normalizeImage(const cv::Mat &image)
     return normalized;
 }
 
-cv::Mat ImageUtils::adjustBrightnessContrast(const cv::Mat &image, double alpha, double beta) {
+cv::Mat ImageUtils::adjustBrightnessContrast(const cv::Mat &image, double alpha, double beta) 
+{
     if (image.empty()) 
-    {
         return cv::Mat();
-    }
+    
 
     cv::Mat adjusted;
     
@@ -460,9 +517,9 @@ cv::Mat ImageUtils::adjustBrightnessContrast(const cv::Mat &image, double alpha,
 
 cv::Mat ImageUtils::rotateImage(const cv::Mat& image, double angle) 
 {
-    if (image.empty()) {
+    if (image.empty()) 
         return cv::Mat();
-    }
+    
 
     cv::Point2f center(image.cols / 2.0f, image.rows / 2.0f);
     cv::Mat rotationMatrix = cv::getRotationMatrix2D(center, angle, 1.0);
@@ -497,10 +554,10 @@ cv::Mat ImageUtils::flipHorizontal(const cv::Mat& image)
     return flipped;
 }
 
-cv::Mat ImageUtils::flipVertically(const cv::Mat &image) {
-    if (image.empty()) {
+cv::Mat ImageUtils::flipVertically(const cv::Mat &image) 
+{
+    if (image.empty()) 
         return cv::Mat();
-    }
 
     cv::Mat flipped;
     cv::flip(image, flipped, 0);
@@ -516,9 +573,9 @@ cv::Size ImageUtils::getImageSize(const std::string& filePath)
     if(!PathUtils::fileExists(filePath))
         return cv::Size(0, 0);
     cv::Mat image = cv::imread(filePath, cv::IMREAD_UNCHANGED);
-    if (image.empty()) {
+    if (image.empty()) 
         return cv::Size(0, 0);
-    }
+    
     return image.size();
 }
 
@@ -536,9 +593,9 @@ std::string ImageUtils::getImageInfo(const std::string &filePath)
 {
     cv::Mat image = cv::imread(filePath, cv::IMREAD_UNCHANGED);
     
-    if (image.empty()) {
+    if (image.empty()) 
         return "Invalid image file";
-    }
+    
 
     std::stringstream info;
     info << "Image Information:\n";
@@ -588,22 +645,23 @@ double ImageUtils::calculateImageQuality(const cv::Mat &image)
 int ImageUtils::getOptimalInterpolation(const cv::Size& originalSize, const cv::Size& targetSize) 
 {
     // Use INTER_AREA for shrinking (best quality for downsampling)
-    if (targetSize.width < originalSize.width || targetSize.height < originalSize.height) {
+    if (targetSize.width < originalSize.width || targetSize.height < originalSize.height) 
         return cv::INTER_AREA;
-    }
+    
     // Use INTER_CUBIC for enlarging (better quality than INTER_LINEAR)
-    else if (targetSize.width > originalSize.width * 1.5 || targetSize.height > originalSize.height * 1.5) {
+    else if (targetSize.width > originalSize.width * 1.5 || targetSize.height > originalSize.height * 1.5) 
         return cv::INTER_CUBIC;
-    }
+    
     // Use INTER_LINEAR for moderate changes (good balance)
-    else {
+    else 
         return cv::INTER_LINEAR;
-    }
+    
 }
 
 std::string ImageUtils::getInterpolationName(int interpolation) 
 {
-    switch (interpolation) {
+    switch (interpolation) 
+    {
         case cv::INTER_NEAREST: return "INTER_NEAREST";
         case cv::INTER_LINEAR: return "INTER_LINEAR";
         case cv::INTER_CUBIC: return "INTER_CUBIC";
@@ -620,13 +678,13 @@ std::string ImageUtils::getInterpolationName(int interpolation)
 cv::Mat ImageUtils::extractFace(const cv::Mat &image, const cv::Rect &faceRect, bool addPadding, double paddingScale) 
 {
     if (image.empty() || faceRect.area() == 0) 
-    {
         return cv::Mat();
-    }
+    
 
     cv::Rect expandedRect = faceRect;
     
-    if (addPadding) {
+    if (addPadding) 
+    {
         int padX = static_cast<int>(faceRect.width * paddingScale);
         int padY = static_cast<int>(faceRect.height * paddingScale);
         
@@ -644,7 +702,8 @@ std::vector<cv::Point2f> ImageUtils::detectFacialLandmarksHAAR(const cv::Mat& fa
     return detectLandmarksHAAR(faceImage);
 }
 
-std::vector<cv::Point2f> ImageUtils::detectFacialLandmarks(const cv::Mat& faceImage) {
+std::vector<cv::Point2f> ImageUtils::detectFacialLandmarks(const cv::Mat& faceImage) 
+{
     // Try multiple methods in order of sophistication
     std::vector<cv::Point2f> landmarks;
 
@@ -682,12 +741,19 @@ std::vector<cv::Point2f> ImageUtils::detectLandmarksDlib(const cv::Mat& faceImag
         static bool predictorLoaded = false;
 
         // Load predictor model (only once)
-        if (!predictorLoaded) {
-            try {
+        if (!predictorLoaded) 
+        {
+            try 
+            {
                 dlib::deserialize("shape_predictor_68_face_landmarks.dat") >> predictor;
                 predictorLoaded = true;
-            } catch (...) {
+            } 
+            catch (...) 
+            {
                 std::cerr << "[WARNING] Dlib predictor model not found" << std::endl;
+                #ifndef DEBUG_MODE
+                Logger::instance().error("Dlib predictor model not found");
+                #endif
                 return std::vector<cv::Point2f>();
             }
         }
@@ -721,24 +787,36 @@ std::vector<cv::Point2f> ImageUtils::detectLandmarksDlib(const cv::Mat& faceImag
 
         return landmarks;
 
-    } catch (const std::exception& e) {
+    } catch (const std::exception& e) 
+    {
         std::cerr << "[ERROR] Dlib landmark detection failed: " << e.what() << std::endl;
+        #ifndef DEBUG_MODE
+        Logger::instance().error("Dlib landmark detection failed: " + std::string(e.what()));
+        #endif
         return std::vector<cv::Point2f>();
     }
 }
 
-std::vector<cv::Point2f> ImageUtils::detectLandmarksLBF(const cv::Mat& faceImage) {
+std::vector<cv::Point2f> ImageUtils::detectLandmarksLBF(const cv::Mat& faceImage) 
+{
     try {
         static cv::Ptr<cv::face::Facemark> facemark;
         static bool facemarkLoaded = false;
 
-        if (!facemarkLoaded) {
-            try {
+        if (!facemarkLoaded) 
+        {
+            try 
+            {
                 facemark = cv::face::FacemarkLBF::create();
                 facemark->loadModel("lbfmodel.yaml");
                 facemarkLoaded = true;
-            } catch (...) {
+            } 
+            catch (...) 
+            {
                 std::cerr << "[WARNING] LBF model not found" << std::endl;
+                #ifndef DEBUG_MODE
+                Logger::instance().error("LBF model not found");
+                #endif
                 return std::vector<cv::Point2f>();
             }
         }
@@ -749,18 +827,24 @@ std::vector<cv::Point2f> ImageUtils::detectLandmarksLBF(const cv::Mat& faceImage
         std::vector<std::vector<cv::Point2f>> landmarks;
         bool success = facemark->fit(faceImage, faces, landmarks);
 
-        if (success && !landmarks.empty()) {
+        if (success && !landmarks.empty()) 
             return landmarks[0];
-        }
+        
 
-    } catch (const cv::Exception& e) {
+    } 
+    catch (const cv::Exception& e) 
+    {
         std::cerr << "[ERROR] LBF landmark detection failed: " << e.what() << std::endl;
+        #ifndef DEBUG_MODE
+        Logger::instance().error("LBF landmark detection failed: " + std::string(e.what()));
+        #endif
     }
 
     return std::vector<cv::Point2f>();
 }
 
-std::vector<cv::Point2f> ImageUtils::detectLandmarksHAAR(const cv::Mat& faceImage) {
+std::vector<cv::Point2f> ImageUtils::detectLandmarksHAAR(const cv::Mat& faceImage) 
+{
     try {
         cv::Mat gray = convertToGray(faceImage);
         
@@ -781,14 +865,19 @@ std::vector<cv::Point2f> ImageUtils::detectLandmarksHAAR(const cv::Mat& faceImag
             return generateLandmarks(faceImage);
         }
 
-    } catch (const cv::Exception& e) {
+    } catch (const cv::Exception& e) 
+    {
         std::cerr << "[ERROR] HAAR landmark detection failed: " << e.what() << std::endl;
+        #ifndef DEBUG_MODE
+        Logger::instance().error("HAAR landmark detection failed: " + std::string(e.what()));
+        #endif
     }
 
     return std::vector<cv::Point2f>();
 }
 
-std::vector<cv::Point2f> ImageUtils::generateLandmarks(const cv::Mat& faceImage) {
+std::vector<cv::Point2f> ImageUtils::generateLandmarks(const cv::Mat& faceImage) 
+{
     std::vector<cv::Point2f> landmarks;
     
     int w = faceImage.cols;
@@ -921,6 +1010,9 @@ std::vector<cv::Rect> ImageUtils::detectFaces(const cv::Mat& grayImage)
 
     } catch (const std::exception& e) {
         std::cerr << "[ERROR] Face detection failed: " << e.what() << std::endl;
+        #ifndef DEBUG_MODE
+        Logger::instance().error("Face detection failed: "  + std::string(e.what()));
+        #endif
     }
 
     return faces;
@@ -933,14 +1025,20 @@ std::vector<cv::Point2f> ImageUtils::detectFacialLandmarksYuNet(const cv::Mat& f
         static bool detectorLoaded = false;
 
         if (!detectorLoaded) {
-            try {
+            try 
+            {
                 std::string model = "face_detection_yunet_2023mar.onnx";
                 detector = cv::FaceDetectorYN::create(model, "", 
                                                       cv::Size(320, 320), 
                                                       0.6f, 0.3f, 5000);
                 detectorLoaded = true;
-            } catch (...) {
+            }
+            catch (...) 
+            {
                 std::cerr << "[WARNING] YuNet model not found" << std::endl;
+                #ifndef DEBUG_MODE
+                Logger::instance().error("YuNet model not found");
+                #endif
                 return std::vector<cv::Point2f>();
             }
         }
@@ -968,6 +1066,9 @@ std::vector<cv::Point2f> ImageUtils::detectFacialLandmarksYuNet(const cv::Mat& f
 
     } catch (const cv::Exception& e) {
         std::cerr << "[ERROR] YuNet detection failed: " << e.what() << std::endl;
+        #ifndef DEBUG_MODE
+        Logger::instance().error("YuNet detection failed: " + std::string(e.what()));
+        #endif
     }
 
     return std::vector<cv::Point2f>();
@@ -975,7 +1076,8 @@ std::vector<cv::Point2f> ImageUtils::detectFacialLandmarksYuNet(const cv::Mat& f
 
 std::vector<cv::Point2f> ImageUtils::generateLandmarksFromKeyPoints(const std::vector<cv::Point2f>& key_points, const cv::Size& image_size)
 {
-    
+    [[maybe_unused]] const cv::Size& unused = image_size;
+
     if (key_points.size() < 5)
     {
         return std::vector<cv::Point2f>();
