@@ -6,18 +6,18 @@
 #include <string>
 
 /**
- * @class ImageUtils
- * @brief A comprehensive utility class for image processing, face detection, and facial landmark detection.
+ * @namespace ImageUtils
+ * @brief A comprehensive utility namespace for image processing, face detection, and facial landmark detection.
  * 
- * This class provides a wide range of static methods for image loading, transformation, processing,
+ * This namespace provides a wide range of static methods for image loading, transformation, processing,
  * face detection, and facial landmark extraction using multiple algorithms including Dlib, OpenCV LBF,
  * and HAAR cascades.
  * 
  * @note All methods are static and thread-safe when used with separate image instances.
  */
-class ImageUtils 
+namespace ImageUtils
 {
-public:
+    
     // ============================================================================
     // Image Loading & Validation
     // ============================================================================
@@ -442,4 +442,4 @@ public:
      * @return true if image meets or exceeds minimum resolution requirements.
      */
     static bool hasSufficientResolution(const cv::Mat& image, int minWidth, int minHeight);
-};
+} // ImageUtils
